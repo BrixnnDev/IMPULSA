@@ -25,6 +25,7 @@ import {
 } from 'react-icons/fi'
 import { FaStar, FaGooglePlay, FaApple, FaQuoteLeft } from 'react-icons/fa'
 import { MdOutlineInventory2 } from 'react-icons/md'
+import DownloadSection from '../components/DownloadSection'
 
 const pasosYFunciones = [
   { icon: FiDollarSign, title: 'Controla tu flujo de caja', desc: 'Registra ventas y gastos fácilmente y mantén tus finanzas claras todos los días.', accent: 'bg-blue-600/15 text-blue-400 ring-blue-500/30' },
@@ -129,9 +130,13 @@ export default function Landing() {
             <span className="text-lg font-bold tracking-tight text-white">StockFlow</span>
           </Link>
           <nav className="ml-auto hidden items-center gap-6 text-sm font-medium text-slate-300 lg:flex">
-            <Link to="/" className="flex items-center gap-1.5 transition hover:text-blue-400">
+            <a
+              href="#inicio"
+              onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+              className="flex items-center gap-1.5 transition hover:text-blue-400"
+            >
               <FiHome size={15} /> Inicio
-            </Link>
+            </a>
             <a href="#funciones" className="flex items-center gap-1.5 transition hover:text-blue-400">
               <FiGrid size={15} /> Funciones
             </a>
@@ -242,8 +247,6 @@ export default function Landing() {
                 </span>
               </p>
             </div>
-
-            {/* Estadísticas movidas a su propia sección más abajo */}
           </div>
 
           {/* Contenedor 2: laptop + celular */}
@@ -464,6 +467,8 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      <DownloadSection />
 
       {/* Planes y precios */}
       <section id="precios" className="relative scroll-mt-20 overflow-hidden border-t border-white/5">

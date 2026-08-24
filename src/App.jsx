@@ -5,8 +5,7 @@ import GuestRoute from './components/GuestRoute'
 import DashboardLayout from './components/DashboardLayout'
 
 import Landing from './pages/Landing'
-import Login from './pages/Login'
-import Register from './pages/Register'
+import AuthPage from './pages/AuthPage'
 import ForgotPassword from './pages/ForgotPassword'
 import SelectProfile from './pages/SelectProfile'
 
@@ -24,8 +23,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
 
-        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-        <Route path="/registro" element={<GuestRoute><Register /></GuestRoute>} />
+        <Route path="/login" element={<GuestRoute><AuthPage initialMode="login" /></GuestRoute>} />
+        <Route path="/registro" element={<GuestRoute><AuthPage initialMode="register" /></GuestRoute>} />
         <Route path="/olvide-contrasena" element={<ForgotPassword />} />
 
         <Route
