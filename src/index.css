@@ -69,6 +69,10 @@ body {
   background-size: 22px 22px;
 }
 
+.shape-tri {
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+}
+
 .mask-hero {
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 25%, transparent 78%);
   mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 25%, transparent 78%);

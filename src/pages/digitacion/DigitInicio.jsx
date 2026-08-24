@@ -1,38 +1,67 @@
-import { FiFileText, FiUploadCloud, FiArrowDownCircle, FiArrowUpCircle, FiClock, FiCheckSquare } from 'react-icons/fi'
+import {
+  FiFileText,
+  FiPrinter,
+  FiSave,
+  FiEdit3,
+  FiClock,
+  FiCheckSquare,
+  FiDollarSign,
+  FiUploadCloud,
+} from 'react-icons/fi'
 import { Link } from 'react-router-dom'
-import { movimientosSeed, productosSeed, ventasSemana } from '../../data/mockData'
 
-const pendientes = movimientosSeed.filter((m) => m.estado === 'Pendiente').length
-const entradas = movimientosSeed.filter((m) => m.tipo === 'Entrada').length
-const salidas = movimientosSeed.filter((m) => m.tipo === 'Salida').length
+const TIPO_STYLES = {
+  Digitalizada: 'bg-blue-600/15 text-blue-400 ring-blue-500/30',
+  Impresa: 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30',
+  Modificada: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
+  Guardada: 'bg-violet-500/15 text-violet-400 ring-violet-500/30',
+}
+
+const TIPO_ICONS = {
+  Digitalizada: FiFileText,
+  Impresa: FiPrinter,
+  Modificada: FiEdit3,
+  Guardada: FiSave,
+}
+
+const trabajosRecientes = [
+  { id: 'HV-1024', persona: 'María Fernanda Rojas', tipo: 'Digitalizada', pago: 2.5, hora: '09:12 a. m.' },
+  { id: 'HV-1023', persona: 'Carlos Andrés Peña', tipo: 'Impresa', pago: 1.0, hora: '09:40 a. m.' },
+  { id: 'HV-1019', persona: 'Luisa Martínez', tipo: 'Modificada', pago: 1.8, hora: '10:05 a. m.' },
+  { id: 'HV-1018', persona: 'Jorge Iván Ramírez', tipo: 'Guardada', pago: 0.8, hora: '10:22 a. m.' },
+  { id: 'HV-1017', persona: 'Ana Sofía Cárdenas', tipo: 'Digitalizada', pago: 2.5, hora: '10:51 a. m.' },
+]
 
 const stats = [
-  { label: 'Registros hoy', value: movimientosSeed.length + 3, icon: FiFileText },
-  { label: 'Por validar', value: pendientes, icon: FiClock, warn: true },
-  { label: 'Entradas', value: entradas, icon: FiArrowDownCircle },
-  { label: 'Salidas', value: salidas, icon: FiArrowUpCircle },
+  { label: 'Hojas de vida hoy', value: 14, icon: FiFileText },
+  { label: 'Por imprimir', value: 5, icon: FiPrinter, warn: true },
+  { label: 'Trabajos pagados', value: 32, icon: FiCheckSquare },
+  { label: 'Ganado hoy', value: 'S/ 86.00', icon: FiDollarSign, money: true },
 ]
 
 const tareas = [
-  { t: 'Digitalizar factura Nº 00821 — Distribuidora Andina', done: true },
-  { t: 'Actualizar precios de la categoría Bebidas', done: true },
-  { t: 'Registrar ingreso de 120 aguas San Mateo', done: false },
-  { t: 'Validar movimiento MOV-499', done: false },
-  { t: 'Cuadrar inventario físico de Snacks', done: false },
+  { t: 'Digitalizar HV impresa de Dario Salgado (2 págs.)', done: true },
+  { t: 'Imprimir HV de Camila Torres — 3 copias', done: true },
+  { t: 'Modificar datos de contacto de HV-0992', done: false },
+  { t: 'Guardar y respaldar lote del día en la carpeta compartida', done: false },
+  { t: 'Archivar hojas de vida impresas del viernes', done: false },
 ]
 
 export default function DigitInicio() {
   const progreso = Math.round((tareas.filter((t) => t.done).length / tareas.length) * 100)
+  const ganadoSemana = trabajosRecientes.reduce((a, t) => a + t.pago, 0)
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-white">Centro de digitación</h2>
-          <p className="mt-1 text-sm text-slate-400">Registra y valida los movimientos del almacén.</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Digitaliza, imprime, guarda y modifica hojas de vida. Ganas por cada trabajo completado.
+          </p>
         </div>
         <Link to="/digitacion/productos" className="btn-primary !px-4 !py-2.5 !text-xs">
-          <FiUploadCloud /> Digitalizar producto
+          <FiUploadCloud /> Nueva hoja de vida
         </Link>
       </div>
 
@@ -57,54 +86,45 @@ export default function DigitInicio() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Actividad reciente */}
+        {/* Trabajos recientes */}
         <div className="panel overflow-hidden xl:col-span-2">
           <div className="flex items-center justify-between border-b border-white/5 px-6 py-5">
-            <h3 className="font-bold text-white">Últimos movimientos registrados</h3>
+            <h3 className="font-bold text-white">Últimos trabajos realizados</h3>
             <Link to="/digitacion/movimientos" className="text-xs font-semibold text-blue-400 hover:text-blue-300">
               Ver todos →
             </Link>
           </div>
           <ul className="divide-y divide-white/5">
-            {movimientosSeed.map((m) => (
-              <li key={m.id} className="flex items-center gap-4 px-6 py-4">
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm ${
-                    m.tipo === 'Entrada'
-                      ? 'bg-emerald-500/15 text-emerald-400'
-                      : m.tipo === 'Salida'
-                        ? 'bg-red-500/15 text-red-400'
-                        : 'bg-blue-600/15 text-blue-400'
-                  }`}
-                >
-                  {m.tipo === 'Entrada' ? <FiArrowDownCircle size={16} /> : m.tipo === 'Salida' ? <FiArrowUpCircle size={16} /> : <FiFileText size={16} />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{m.producto}</p>
-                  <p className="truncate text-xs text-slate-500">{m.motivo} · {m.id}</p>
-                </div>
-                <span className="shrink-0 font-bold text-slate-200">
-                  {m.cantidad > 0 && m.tipo !== 'Entrada' ? `+${m.cantidad}` : m.cantidad}
-                </span>
-                <span
-                  className={`hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold sm:block ${
-                    m.estado === 'Validado'
-                      ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/30'
-                      : 'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30'
-                  }`}
-                >
-                  {m.estado}
-                </span>
-              </li>
-            ))}
+            {trabajosRecientes.map((t) => {
+              const Icon = TIPO_ICONS[t.tipo]
+              return (
+                <li key={t.id} className="flex items-center gap-4 px-6 py-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600/15 text-sm text-blue-400">
+                    <Icon size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-white">{t.persona}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {t.id} · {t.hora}
+                    </p>
+                  </div>
+                  <span
+                    className={`hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ring-1 sm:block ${TIPO_STYLES[t.tipo]}`}
+                  >
+                    {t.tipo}
+                  </span>
+                  <span className="shrink-0 text-sm font-bold text-emerald-400">+ S/ {t.pago.toFixed(2)}</span>
+                </li>
+              )
+            })}
           </ul>
         </div>
 
-        {/* Tareas del día */}
+        {/* Tareas y ganancias */}
         <div className="space-y-6">
           <div className="panel p-6">
             <div className="flex items-center gap-3">
-              <FiCheckSquare className="text-blue-400" />
+              <FiClock className="text-blue-400" />
               <h3 className="font-bold text-white">Tareas del día</h3>
             </div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-night-700">
@@ -133,21 +153,19 @@ export default function DigitInicio() {
           </div>
 
           <div className="panel p-6">
-            <h3 className="font-bold text-white">Resumen del catálogo</h3>
+            <h3 className="font-bold text-white">Mis ganancias</h3>
             <dl className="mt-4 space-y-3 text-sm">
               <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-3 ring-1 ring-white/5">
-                <dt className="text-slate-400">Productos digitalizados</dt>
-                <dd className="font-black text-white">{productosSeed.length}</dd>
+                <dt className="text-slate-400">Hoy</dt>
+                <dd className="font-black text-emerald-400">S/ 86.00</dd>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-3 ring-1 ring-white/5">
-                <dt className="text-slate-400">Valor del stock</dt>
-                <dd className="font-black text-white">
-                  S/ {productosSeed.reduce((a, p) => a + p.precioCompra * p.stock, 0).toFixed(2)}
-                </dd>
+                <dt className="text-slate-400">Esta sesión</dt>
+                <dd className="font-black text-white">S/ {ganadoSemana.toFixed(2)}</dd>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-3 ring-1 ring-white/5">
-                <dt className="text-slate-400">Ventas semana (ref.)</dt>
-                <dd className="font-black text-white">{ventasSemana.reduce((a, b) => a + b, 0)}</dd>
+                <dt className="text-slate-400">Pagos pendientes</dt>
+                <dd className="font-black text-amber-400">S/ 12.50</dd>
               </div>
             </dl>
           </div>

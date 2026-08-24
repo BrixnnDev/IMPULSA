@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FiArrowDownCircle, FiArrowUpCircle, FiSliders, FiCheckCircle, FiX, FiRepeat } from 'react-icons/fi'
+import { FiArrowDownCircle, FiArrowUpCircle, FiSliders, FiCheckCircle, FiX, FiPrinter } from 'react-icons/fi'
 import { productosSeed, movimientosSeed } from '../../data/mockData'
 
 const TIPOS = [
@@ -47,8 +47,13 @@ export default function DigitMovimientos() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-white">Movimientos</h2>
-        <p className="mt-1 text-sm text-slate-400">Registra entradas, salidas y ajustes del almacén.</p>
+        <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
+            <FiPrinter size={20} />
+          </span>
+          Imprimir
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">Imprime las hojas de vida digitalizadas.</p>
       </div>
 
       {ok && (
@@ -65,9 +70,9 @@ export default function DigitMovimientos() {
         <form onSubmit={registrar} className="panel h-fit space-y-5 p-6 xl:sticky xl:top-24">
           <div className="flex items-center gap-3 border-b border-white/5 pb-4">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40">
-              <FiRepeat size={18} />
+              <FiPrinter size={18} />
             </span>
-            <h3 className="font-bold text-white">Registrar movimiento</h3>
+            <h3 className="font-bold text-white">Registrar impresión</h3>
           </div>
 
           <div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FiUploadCloud, FiCheckCircle, FiPlus, FiX } from 'react-icons/fi'
+import { MdDocumentScanner } from 'react-icons/md'
 import { productosSeed } from '../../data/mockData'
 
 const emptyForm = {
@@ -43,8 +44,13 @@ export default function DigitProductos() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-white">Registrar productos</h2>
-        <p className="mt-1 text-sm text-slate-400">Digitaliza nuevos productos al catálogo del sistema.</p>
+        <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
+            <MdDocumentScanner size={20} />
+          </span>
+          Escanear / Digitalizar
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">Escanea o digitaliza nuevas hojas de vida al sistema.</p>
       </div>
 
       {ok && (
