@@ -11,10 +11,13 @@ import {
   FiBell,
   FiMail,
   FiPrinter,
-  FiDollarSign,
+  FiFileText,
+  FiPenTool,
+  FiImage,
+  FiFolder,
 } from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
-import { MdDocumentScanner } from 'react-icons/md'
+import { MdConfirmationNumber } from 'react-icons/md'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = {
@@ -33,15 +36,27 @@ const NAV = {
     {
       title: 'Home',
       short: 'HOME',
-      items: [{ to: '/digitacion', label: 'Panel de digitación', icon: FiHome, end: true }],
+      items: [
+        { to: '/digitacion', label: 'Inicio', icon: FiHome, end: true },
+        { to: '/digitacion/historial', label: 'Ticket', icon: MdConfirmationNumber },
+      ],
     },
     {
-      title: 'Impresión y Scaner',
+      title: 'Documentos',
+      short: 'DOC',
+      items: [
+        { to: '/digitacion/productos', label: 'Hojas de vida', icon: FiFileText },
+        { to: '/digitacion/disenos', label: 'Diseños', icon: FiPenTool },
+        { to: '/digitacion/imagenes', label: 'Imágenes', icon: FiImage },
+        { to: '/digitacion/documentos', label: 'Documentos', icon: FiFolder },
+      ],
+    },
+    {
+      title: 'Impresión',
       short: 'IMP',
       items: [
-        { to: '/digitacion/productos', label: 'Escanear / Digitalizar', icon: MdDocumentScanner },
-        { to: '/digitacion/movimientos', label: 'Historial Impresora', icon: FiPrinter },
-        { to: '/digitacion/historial', label: 'Historial de impresión', icon: FiDollarSign },
+        { to: '/digitacion/escaneos', label: 'Historial de escáner', icon: FiFileText },
+        { to: '/digitacion/movimientos', label: 'Historial de impresión', icon: FiPrinter },
       ],
     },
   ],

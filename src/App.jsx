@@ -17,6 +17,10 @@ import DigitInicio from './pages/digitacion/DigitInicio'
 import DigitProductos from './pages/digitacion/DigitProductos'
 import DigitMovimientos from './pages/digitacion/DigitMovimientos'
 import DigitHistorial from './pages/digitacion/DigitHistorial'
+import DigitEscaneos from './pages/digitacion/DigitEscaneos'
+import DigitDisenos from './pages/digitacion/DigitDisenos'
+import DigitImagenes from './pages/digitacion/DigitImagenes'
+import DigitDocumentos from './pages/digitacion/DigitDocumentos'
 
 export default function App() {
   return (
@@ -46,6 +50,10 @@ export default function App() {
           <Route path="/digitacion/productos" element={<DigitProductos />} />
           <Route path="/digitacion/movimientos" element={<DigitMovimientos />} />
           <Route path="/digitacion/historial" element={<DigitHistorial />} />
+          <Route path="/digitacion/escaneos" element={<DigitEscaneos />} />
+          <Route path="/digitacion/disenos" element={<DigitDisenos />} />
+          <Route path="/digitacion/imagenes" element={<DigitImagenes />} />
+          <Route path="/digitacion/documentos" element={<DigitDocumentos />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
