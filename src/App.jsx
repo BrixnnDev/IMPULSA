@@ -16,6 +16,7 @@ import PosVentas from './pages/pos/PosVentas'
 import DigitInicio from './pages/digitacion/DigitInicio'
 import DigitProductos from './pages/digitacion/DigitProductos'
 import DigitMovimientos from './pages/digitacion/DigitMovimientos'
+import DigitHistorial from './pages/digitacion/DigitHistorial'
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/digitacion" element={<DigitInicio />} />
           <Route path="/digitacion/productos" element={<DigitProductos />} />
           <Route path="/digitacion/movimientos" element={<DigitMovimientos />} />
+          <Route path="/digitacion/historial" element={<DigitHistorial />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,6 +11,7 @@ import {
   FiBell,
   FiMail,
   FiPrinter,
+  FiDollarSign,
 } from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { MdDocumentScanner } from 'react-icons/md'
@@ -39,7 +40,8 @@ const NAV = {
       short: 'IMP',
       items: [
         { to: '/digitacion/productos', label: 'Escanear / Digitalizar', icon: MdDocumentScanner },
-        { to: '/digitacion/movimientos', label: 'Imprimir', icon: FiPrinter },
+        { to: '/digitacion/movimientos', label: 'Historial Impresora', icon: FiPrinter },
+        { to: '/digitacion/historial', label: 'Historial de impresión', icon: FiDollarSign },
       ],
     },
   ],

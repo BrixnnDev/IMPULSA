@@ -51,9 +51,9 @@ export default function DigitMovimientos() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
             <FiPrinter size={20} />
           </span>
-          Imprimir
+          Historial Impresora
         </h2>
-        <p className="mt-1 text-sm text-slate-400">Imprime las hojas de vida digitalizadas.</p>
+        <p className="mt-1 text-sm text-slate-400">Historial de impresiones y movimientos de la impresora.</p>
       </div>
 
       {ok && (

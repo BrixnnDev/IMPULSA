@@ -90,7 +90,7 @@ export default function DigitInicio() {
         <div className="panel overflow-hidden xl:col-span-2">
           <div className="flex items-center justify-between border-b border-white/5 px-6 py-5">
             <h3 className="font-bold text-white">Últimos trabajos realizados</h3>
-            <Link to="/digitacion/movimientos" className="text-xs font-semibold text-blue-400 hover:text-blue-300">
+            <Link to="/digitacion/historial" className="text-xs font-semibold text-blue-400 hover:text-blue-300">
               Ver todos →
             </Link>
           </div>
