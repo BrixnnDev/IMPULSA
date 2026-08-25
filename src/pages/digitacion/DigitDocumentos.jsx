@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FiFolder, FiPlus, FiX, FiFileText, FiSearch, FiClock, FiCheckCircle, FiEye, FiDownload } from 'react-icons/fi'
+import { useAuth } from '../../context/AuthContext'
 
 const TIPO_STYLES = {
   PDF: 'bg-red-500/15 text-red-400',
@@ -24,6 +25,7 @@ const seedDocumentos = [
 const CARPETAS_INICIALES = ['Hojas de vida', 'Contratos', 'Reportes']
 
 export default function DigitDocumentos() {
+  const { isAdmin } = useAuth()
   const [carpetas, setCarpetas] = useState(CARPETAS_INICIALES)
   const [documentos, setDocumentos] = useState(seedDocumentos)
   const [busqueda, setBusqueda] = useState('')
@@ -126,9 +128,11 @@ export default function DigitDocumentos() {
                 className="input-field !pl-11"
               />
             </div>
-            <button onClick={() => setMostrarNueva(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
-              <FiPlus /> Crear carpeta
-            </button>
+            {isAdmin && (
+              <button onClick={() => setMostrarNueva(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
+                <FiPlus /> Crear carpeta
+              </button>
+            )}
             <button
               onClick={() => {
                 setMostrarForm(true)

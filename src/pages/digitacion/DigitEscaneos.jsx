@@ -44,6 +44,14 @@ export default function DigitEscaneos() {
       setToast(`Nuevo: ${scan.nombre}`)
       setTimeout(() => setToast(''), 4000)
     })
+    s.on('pc:scan', (scan) => {
+      setEscaneos((prev) => {
+        const filtered = prev.filter((e) => !e._demo)
+        return [{ ...scan, nombre: scan.documento, size: 0, archivo: '' }, ...filtered]
+      })
+      setToast(`${scan.pc} escaneó: ${scan.documento}`)
+      setTimeout(() => setToast(''), 4000)
+    })
     return () => s.close()
   }, [])
 
