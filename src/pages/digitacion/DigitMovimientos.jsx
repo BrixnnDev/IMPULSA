@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
-  FiPrinter, FiFolder, FiCheckCircle, FiClock, FiFileText, FiSearch, FiPlus, FiX,
-  FiList, FiEye, FiDownload, FiInfo, FiCopy, FiMonitor, FiWifi, FiWifiOff, FiTrash2,
+  FiPrinter, FiFolder, FiCheckCircle, FiClock, FiFileText, FiSearch, FiX,
+  FiList, FiEye, FiDownload, FiInfo, FiCopy, FiMonitor, FiWifi, FiWifiOff,
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
@@ -37,12 +37,6 @@ export default function DigitMovimientos() {
   const [verPdf, setVerPdf] = useState(null)
   const [info, setInfo] = useState(null)
   const [pcStatus, setPcStatus] = useState({})
-  const [formOpen, setFormOpen] = useState(false)
-  const [nombreCarpeta, setNombreCarpeta] = useState('')
-  const [codigoModal, setCodigoModal] = useState(null)
-  const [eliminarId, setEliminarId] = useState(null)
-  const [codigoEmparejamiento, setCodigoEmparejamiento] = useState({})
-  const [emparejandoId, setEmparejandoId] = useState(null)
 
   useEffect(() => {
     fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
@@ -55,7 +49,6 @@ export default function DigitMovimientos() {
     s.on('pc:print', (registro) => {
       setPrintsReales((prev) => [registro, ...prev])
     })
-    s.on('pc:scan', () => {})
     return () => s.close()
   }, [])
 
@@ -70,53 +63,6 @@ export default function DigitMovimientos() {
   const totalPaginas = visibles.reduce((a, p) => a + (p.paginas || 1) * (p.copias || 1), 0)
   const totalPendientes = visibles.filter((p) => p.estado === 'Pendiente').length
   const totalHoy = todasImp.length
-
-  // Crear carpeta: solo nombre
-  const crearCarpeta = async () => {
-    if (!nombreCarpeta.trim()) return
-    try {
-      const res = await fetch(`${API}/api/pc/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: nombreCarpeta.trim() }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setPcs((prev) => [...prev, data.pc])
-        setCodigoModal(data.pc)
-        setFormOpen(false)
-        setNombreCarpeta('')
-      }
-    } catch (e) {
-      console.error('Error creando carpeta:', e)
-    }
-  }
-
-  // Emparejar carpeta con código del script
-  const emparejarCarpeta = async (pcId) => {
-    const codigo = codigoEmparejamiento[pcId]
-    if (!codigo?.trim()) return
-    setEmparejandoId(pcId)
-    try {
-      const res = await fetch(`${API}/api/pc/pair`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo: codigo.trim() }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setPcs((prev) => prev.map((p) => p.id === pcId ? { ...p, emparejada: true, ip: data.pc.ip, mac: data.pc.mac, sistema: data.pc.sistema } : p))
-        setCodigoEmparejamiento((prev) => ({ ...prev, [pcId]: '' }))
-      }
-    } catch (e) {
-      console.error('Error emparejando:', e)
-    }
-    setEmparejandoId(null)
-  }
-
-  const eliminarPC = async (id) => {
-    try { await fetch(`${API}/api/pc/${id}`, { method: 'DELETE' }); setPcs((prev) => prev.filter((p) => p.id !== id)); setEliminarId(null) } catch {}
-  }
 
   const abrirCarpeta = (p, desdeModal = false) => {
     if (desdeModal && modal) setPrevModal(modal)
@@ -149,7 +95,6 @@ export default function DigitMovimientos() {
             <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre..." className="input-field !pl-11" />
           </div>
           <button onClick={() => setModal({ titulo: isAdmin ? 'Historial de impresiones' : 'Mis impresiones', datos: visibles })} className="btn-primary !px-4 !py-2.5 !text-xs"><FiList /> Historial</button>
-          {isAdmin && <button onClick={() => setFormOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs"><FiPlus /> Agregar PC</button>}
         </div>
       </div>
 
@@ -172,10 +117,7 @@ export default function DigitMovimientos() {
               <span className="relative mx-auto block h-2.5 w-14 rounded-t-md bg-night-700 ring-1 ring-white/10 transition group-hover:bg-blue-500/40" />
               <span className="panel relative flex aspect-square flex-col items-center justify-center gap-2 p-3 text-center transition duration-300 group-hover:-translate-y-1 group-hover:border-blue-500/40">
                 {isAdmin && (
-                  <>
-                    <span role="button" tabIndex={0} title="Info" onClick={(e) => { e.stopPropagation(); setInfo(p) }} className="absolute right-8 top-2 z-10 rounded-lg p-1.5 text-slate-600 transition hover:bg-blue-600/15 hover:text-blue-300"><FiInfo size={14} /></span>
-                    <span role="button" tabIndex={0} title="Eliminar" onClick={(e) => { e.stopPropagation(); setEliminarId(p) }} className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-slate-600 transition hover:bg-red-600/15 hover:text-red-400"><FiTrash2 size={13} /></span>
-                  </>
+                  <span role="button" tabIndex={0} title="Info" onClick={(e) => { e.stopPropagation(); setInfo(p) }} className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-slate-600 transition hover:bg-blue-600/15 hover:text-blue-300"><FiInfo size={14} /></span>
                 )}
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 transition group-hover:scale-110"><FiFolder size={22} /></span>
                 <span className="block w-full truncate px-0.5 text-xs font-bold text-white sm:text-sm">{p.responsable}</span>
@@ -190,102 +132,14 @@ export default function DigitMovimientos() {
                     <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-300 ring-1 ring-amber-500/25">{pend} pend.</span>
                   </span>
                 ) : (
-                  <div className="mt-1 w-full space-y-1.5 px-1" onClick={(e) => e.stopPropagation()}>
-                    <p className="text-[10px] text-amber-400 font-semibold">Sin emparejar — pega el código del script:</p>
-                    <div className="flex gap-1">
-                      <input
-                        value={codigoEmparejamiento[p.id] || ''}
-                        onChange={(e) => setCodigoEmparejamiento((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                        placeholder="Código"
-                        className="input-field !py-1.5 !text-[11px] flex-1 text-center font-mono tracking-wider"
-                        maxLength={8}
-                      />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); emparejarCarpeta(p.id) }}
-                        disabled={!codigoEmparejamiento[p.id]?.trim() || emparejandoId === p.id}
-                        className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold text-white transition hover:bg-emerald-500 disabled:opacity-40"
-                      >
-                        {emparejandoId === p.id ? '...' : 'Vincular'}
-                      </button>
-                    </div>
-                  </div>
+                  <span className="text-[10px] font-semibold text-amber-400">Sin vincular</span>
                 )}
               </span>
             </button>
           )
         })}
-        {filtradas.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">{isAdmin ? 'No hay PCs. Agrega una con "Agregar PC".' : 'No se encontraron carpetas.'}</p>}
+        {filtradas.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">No se encontraron carpetas.</p>}
       </div>
-
-      {/* Formulario flotante: crear carpeta (solo nombre) */}
-      {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setFormOpen(false)}>
-          <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40"><FiFolder size={18} /></span>
-              <div><h3 className="font-bold text-white">Agregar PC</h3><p className="text-xs text-slate-400">Nombre de la PC o responsable.</p></div>
-              <button onClick={() => setFormOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
-            </div>
-            <div>
-              <label className="label-form">Nombre de la PC *</label>
-              <input autoFocus value={nombreCarpeta} onChange={(e) => setNombreCarpeta(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && crearCarpeta()} placeholder="Ej. María Victoria" className="input-field" />
-            </div>
-            <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
-              <button onClick={() => setFormOpen(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
-              <button onClick={crearCarpeta} className="btn-primary !px-5 !py-2.5 !text-xs"><FiPlus /> Agregar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Código de emparejamiento */}
-      {codigoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setCodigoModal(null)}>
-          <div className="w-full max-w-lg space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiMonitor size={18} /></span>
-              <div><h3 className="font-bold text-white">PC agregada: {codigoModal.etiqueta}</h3><p className="text-xs text-slate-400">Paso 2 — Emparejar la PC</p></div>
-              <button onClick={() => setCodigoModal(null)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="rounded-xl border border-white/5 bg-black/30 p-4">
-                <p className="text-xs font-semibold text-slate-300">1. Abre CMD en la PC destino y ejecuta:</p>
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-black/50 p-3">
-                  <code className="flex-1 break-all font-mono text-xs text-emerald-400">curl -X POST http://localhost:8787/api/pc/register-from-script -H "Content-Type: application/json" -d {`'{"codigo":"${codigoModal.codigo}","pc":"${codigoModal.etiqueta}"}'`}</code>
-                  <button onClick={() => copiar(`curl -X POST http://localhost:8787/api/pc/register-from-script -H "Content-Type: application/json" -d '{"codigo":"${codigoModal.codigo}","pc":"${codigoModal.etiqueta}"}'`)} className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar"><FiCopy size={14} /></button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-white/5 bg-black/30 p-4">
-                <p className="text-xs font-semibold text-slate-300">2. O copia este código y pégalo en el formulario de vinculación:</p>
-                <div className="mt-3 flex items-center justify-center gap-3">
-                  <span className="rounded-xl bg-black/40 px-6 py-4 font-mono text-3xl font-black tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">{codigoModal.codigo}</span>
-                  <button onClick={() => copiar(codigoModal.codigo)} className="rounded-xl p-3 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={20} /></button>
-                </div>
-              </div>
-
-              <p className="text-center text-xs text-slate-500">Una vez emparejado, el script enviará heartbeat cada 30s automáticamente.</p>
-            </div>
-
-            <button onClick={() => setCodigoModal(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmar eliminación */}
-      {eliminarId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setEliminarId(null)}>
-          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-white">Eliminar {eliminarId.etiqueta}?</h3>
-            <p className="text-sm text-slate-400">Se eliminará esta carpeta y todas sus impresiones.</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setEliminarId(null)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
-              <button onClick={() => eliminarPC(eliminarId.id)} className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-red-500"><FiTrash2 /> Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Panel impresiones */}
       {modal && (
@@ -354,7 +208,7 @@ export default function DigitMovimientos() {
         </div>
       )}
 
-      {/* Info del PC (solo admin) — solo se muestra si tiene datos */}
+      {/* Info del PC (solo admin) */}
       {info && isAdmin && (() => {
         const imp = generarImpresiones(info, pcs.indexOf(info))
         const paginas = imp.reduce((a, x) => a + x.paginas * x.copias, 0)
@@ -380,7 +234,6 @@ export default function DigitMovimientos() {
                     {info.ip && <div className="flex items-center gap-3 rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5"><dt className="shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-500">IP</dt><dd className="ml-auto truncate font-mono text-xs font-bold text-slate-200">{info.ip}</dd><button onClick={() => copiar(info.ip)} className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-blue-300"><FiCopy size={13} /></button></div>}
                     {info.mac && <div className="flex items-center gap-3 rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5"><dt className="shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-500">MAC</dt><dd className="ml-auto truncate font-mono text-xs font-bold text-slate-200">{info.mac}</dd><button onClick={() => copiar(info.mac)} className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-blue-300"><FiCopy size={13} /></button></div>}
                     {info.sistema && <div className="flex items-center gap-3 rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5"><dt className="shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-500">Sistema</dt><dd className="ml-auto truncate font-mono text-xs font-bold text-slate-200">{info.sistema}</dd></div>}
-                    {info.ubicacion && <div className="flex items-center gap-3 rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5"><dt className="shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-500">Ubicación</dt><dd className="ml-auto truncate font-mono text-xs font-bold text-slate-200">{info.ubicacion}</dd></div>}
                     {!info.ip && !info.mac && !info.sistema && <p className="text-center text-sm text-slate-500">Esperando info del script...</p>}
                   </dl>
                 ) : (
@@ -390,7 +243,7 @@ export default function DigitMovimientos() {
                       <span className="rounded-xl bg-black/30 px-5 py-3 font-mono text-2xl font-black tracking-widest text-amber-400 ring-1 ring-amber-500/30">{info.codigo}</span>
                       <button onClick={() => copiar(info.codigo)} className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiCopy size={18} /></button>
                     </div>
-                    <p className="mt-3 text-xs text-slate-500">Ejecuta el script en la PC y pega este código.</p>
+                    <p className="mt-3 text-xs text-slate-500">Ve a Administrar PCs para vincular esta PC.</p>
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-3">

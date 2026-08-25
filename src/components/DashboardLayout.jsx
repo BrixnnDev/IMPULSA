@@ -13,6 +13,7 @@ import {
   FiPrinter,
   FiFileText,
   FiFolder,
+  FiMonitor,
 } from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { MdConfirmationNumber } from 'react-icons/md'

@@ -125,11 +125,11 @@ export function pcRouter(io) {
 
   // Heartbeat: el script manda info cada 30 seg
   r.post('/heartbeat', (req, res) => {
-    const { pc, ip, mac, sistema, ubicacion } = req.body
+    const { pc, ip, mac, sistema, ubicacion, codigo } = req.body
     const nombre = pc
     if (!nombre) return res.status(400).json({ ok: false })
     const db = loadDB()
-    const found = db.find((p) => p.id === nombre || p.codigo === nombre || p.etiqueta === nombre)
+    const found = db.find((p) => (codigo && p.codigo === codigo) || p.id === nombre || p.etiqueta === nombre)
     if (found) {
       if (ip) found.ip = ip
       if (mac) found.mac = mac
