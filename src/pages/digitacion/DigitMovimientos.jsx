@@ -149,7 +149,7 @@ export default function DigitMovimientos() {
             <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre..." className="input-field !pl-11" />
           </div>
           <button onClick={() => setModal({ titulo: isAdmin ? 'Historial de impresiones' : 'Mis impresiones', datos: visibles })} className="btn-primary !px-4 !py-2.5 !text-xs"><FiList /> Historial</button>
-          {isAdmin && <button onClick={() => setFormOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs"><FiPlus /> Crear carpeta</button>}
+          {isAdmin && <button onClick={() => setFormOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs"><FiPlus /> Agregar PC</button>}
         </div>
       </div>
 
@@ -214,7 +214,7 @@ export default function DigitMovimientos() {
             </button>
           )
         })}
-        {filtradas.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">{isAdmin ? 'No hay carpetas. Crea una con "Crear carpeta".' : 'No se encontraron carpetas.'}</p>}
+        {filtradas.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">{isAdmin ? 'No hay PCs. Agrega una con "Agregar PC".' : 'No se encontraron carpetas.'}</p>}
       </div>
 
       {/* Formulario flotante: crear carpeta (solo nombre) */}
@@ -223,16 +223,16 @@ export default function DigitMovimientos() {
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40"><FiFolder size={18} /></span>
-              <div><h3 className="font-bold text-white">Crear carpeta</h3><p className="text-xs text-slate-400">Nombre de la PC o responsable.</p></div>
+              <div><h3 className="font-bold text-white">Agregar PC</h3><p className="text-xs text-slate-400">Nombre de la PC o responsable.</p></div>
               <button onClick={() => setFormOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
             <div>
-              <label className="label-form">Nombre de la carpeta *</label>
-              <input autoFocus value={nombreCarpeta} onChange={(e) => setNombreCarpeta(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && crearCarpeta()} placeholder="Ej. PC-01 — María" className="input-field" />
+              <label className="label-form">Nombre de la PC *</label>
+              <input autoFocus value={nombreCarpeta} onChange={(e) => setNombreCarpeta(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && crearCarpeta()} placeholder="Ej. María Victoria" className="input-field" />
             </div>
             <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
               <button onClick={() => setFormOpen(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
-              <button onClick={crearCarpeta} className="btn-primary !px-5 !py-2.5 !text-xs"><FiPlus /> Crear</button>
+              <button onClick={crearCarpeta} className="btn-primary !px-5 !py-2.5 !text-xs"><FiPlus /> Agregar</button>
             </div>
           </div>
         </div>
@@ -241,20 +241,33 @@ export default function DigitMovimientos() {
       {/* Código de emparejamiento */}
       {codigoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setCodigoModal(null)}>
-          <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiMonitor size={18} /></span>
-              <div><h3 className="font-bold text-white">Carpeta creada</h3><p className="text-xs text-slate-400">Código para emparejar</p></div>
+              <div><h3 className="font-bold text-white">PC agregada: {codigoModal.etiqueta}</h3><p className="text-xs text-slate-400">Paso 2 — Emparejar la PC</p></div>
               <button onClick={() => setCodigoModal(null)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
-            <div className="text-center">
-              <p className="text-sm text-slate-400">Descarga el script en la PC, ejecútalo y pega este código:</p>
-              <div className="mt-4 flex items-center justify-center gap-3">
-                <span className="rounded-xl bg-black/30 px-6 py-4 font-mono text-3xl font-black tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">{codigoModal.codigo}</span>
-                <button onClick={() => copiar(codigoModal.codigo)} className="rounded-xl p-3 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar"><FiCopy size={20} /></button>
+
+            <div className="space-y-4">
+              <div className="rounded-xl border border-white/5 bg-black/30 p-4">
+                <p className="text-xs font-semibold text-slate-300">1. Abre CMD en la PC destino y ejecuta:</p>
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-black/50 p-3">
+                  <code className="flex-1 break-all font-mono text-xs text-emerald-400">curl -X POST http://localhost:8787/api/pc/register-from-script -H "Content-Type: application/json" -d {`'{"codigo":"${codigoModal.codigo}","pc":"${codigoModal.etiqueta}"}'`}</code>
+                  <button onClick={() => copiar(`curl -X POST http://localhost:8787/api/pc/register-from-script -H "Content-Type: application/json" -d '{"codigo":"${codigoModal.codigo}","pc":"${codigoModal.etiqueta}"}'`)} className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar"><FiCopy size={14} /></button>
+                </div>
               </div>
-              <p className="mt-4 text-xs text-slate-500">Una vez emparejado, el script enviará la info de la PC automáticamente.</p>
+
+              <div className="rounded-xl border border-white/5 bg-black/30 p-4">
+                <p className="text-xs font-semibold text-slate-300">2. O copia este código y pégalo en el formulario de vinculación:</p>
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  <span className="rounded-xl bg-black/40 px-6 py-4 font-mono text-3xl font-black tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">{codigoModal.codigo}</span>
+                  <button onClick={() => copiar(codigoModal.codigo)} className="rounded-xl p-3 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={20} /></button>
+                </div>
+              </div>
+
+              <p className="text-center text-xs text-slate-500">Una vez emparejado, el script enviará heartbeat cada 30s automáticamente.</p>
             </div>
+
             <button onClick={() => setCodigoModal(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
           </div>
         </div>
