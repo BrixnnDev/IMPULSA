@@ -6,6 +6,7 @@ import { Server } from 'socket.io'
 import { verifyWebhook, parseIncoming, sendWhatsApp } from './whatsapp.js'
 import { authUrl, saveCode, isReady, listRecent, sendMail } from './gmail.js'
 import { scansRouter } from './scans.js'
+import { pcRouter } from './pc.js'
 
 const cfg = {
   port: process.env.PORT || 8787,
@@ -67,6 +68,7 @@ app.post('/api/whatsapp/send', async (req, res) => {
 /* ============ ESCANER (carpeta del PC -> web) ============ */
 
 app.use('/api/scans', scansRouter(io))
+app.use('/api/pc', pcRouter(io))
 
 /* ============ GMAIL (OAuth2 oficial de Google) ============ */
 

@@ -25,9 +25,12 @@ export default function DigitEscaneos() {
   const [showInfo, setShowInfo] = useState(false)
 
   useEffect(() => {
-    fetch(`${API}/api/scans/list`)
+    fetch(`${API}/api/scans/list?limit=500`)
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data) && data.length) setEscaneos(data) })
+      .then((data) => {
+        const items = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
+        if (items.length) setEscaneos(items)
+      })
       .catch(() => setEscaneos([...seedEscaneos]))
 
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })

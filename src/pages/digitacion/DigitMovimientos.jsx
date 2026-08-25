@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { io } from 'socket.io-client'
 import {
   FiPrinter,
   FiFolder,
@@ -82,6 +83,22 @@ export default function DigitMovimientos() {
   const [prevModal, setPrevModal] = useState(null)
   const [verPdf, setVerPdf] = useState(null)
   const [info, setInfo] = useState(null)
+  const [pcStatus, setPcStatus] = useState({})
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8787'}/api/pc/status`)
+      .then((r) => r.json())
+      .then((list) => {
+        const map = {}
+        list.forEach((p) => { map[p.pc] = p.online })
+        setPcStatus(map)
+      })
+      .catch(() => {})
+
+    const s = io(import.meta.env.VITE_API_URL || 'http://localhost:8787', { transports: ['websocket'], reconnectionAttempts: 3 })
+    s.on('pc:status', ({ pc, online }) => setPcStatus((prev) => ({ ...prev, [pc]: online })))
+    return () => s.close()
+  }, [])
 
   const copiar = (texto) => navigator.clipboard?.writeText(texto)
 
@@ -283,6 +300,12 @@ export default function DigitMovimientos() {
                 <span className="block w-full truncate px-0.5 text-xs font-bold text-white sm:text-sm">{p.responsable}</span>
                 <span className="text-[11px] text-slate-500">{p.etiqueta} · {imp.length} hoy</span>
                 <span className="flex items-center gap-2 text-[10px] font-semibold">
+                  {pcStatus[p.etiqueta] !== undefined && (
+                    <span className={`flex items-center gap-1 ${pcStatus[p.etiqueta] ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${pcStatus[p.etiqueta] ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                      {pcStatus[p.etiqueta] ? 'En línea' : 'Offline'}
+                    </span>
+                  )}
                   <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-violet-300 ring-1 ring-violet-500/25">
                     {paginas} pág.
                   </span>
