@@ -22,6 +22,7 @@ import DigitDisenos from './pages/digitacion/DigitDisenos'
 import DigitImagenes from './pages/digitacion/DigitImagenes'
 import DigitDocumentos from './pages/digitacion/DigitDocumentos'
 import DigitAjustes from './pages/digitacion/DigitAjustes'
+import DigitAdminPcs from './pages/digitacion/DigitAdminPcs'
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/digitacion/imagenes" element={<DigitImagenes />} />
           <Route path="/digitacion/documentos" element={<DigitDocumentos />} />
           <Route path="/digitacion/ajustes" element={<DigitAjustes />} />
+          <Route path="/digitacion/admin-pcs" element={<DigitAdminPcs />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

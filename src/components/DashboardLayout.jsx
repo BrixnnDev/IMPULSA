@@ -182,7 +182,7 @@ export default function DashboardLayout({ profile }) {
   const [open, setOpen] = useState(false)
   const [perfilOpen, setPerfilOpen] = useState(false)
   const [avatar] = useAvatar()
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
 
   const [notifs, setNotifs] = useState(SEED_NOTIFS)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -304,7 +304,15 @@ export default function DashboardLayout({ profile }) {
     }
   }
   const navigate = useNavigate()
-  const links = NAV[profile]
+  const links = [...NAV[profile]]
+  if (isAdmin && profile === 'digitacion') {
+    links.push({
+      title: 'Admin',
+      items: [
+        { to: '/digitacion/admin-pcs', label: 'Administrar PCs', icon: FiMonitor },
+      ],
+    })
+  }
   const flatLinks = links.flatMap((g) => g.items)
   const iconOnly = profile === 'digitacion'
 
