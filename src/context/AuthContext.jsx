@@ -58,13 +58,28 @@ export function AuthProvider({ children }) {
     return { ok: true }
   }
 
+  const updateProfile = ({ name, telefono }) => {
+    if (!user) return { ok: false, error: 'No hay sesión activa.' }
+    const users = read(USERS_KEY, [])
+    const idx = users.findIndex((u) => u.email.toLowerCase() === user.email.toLowerCase())
+    if (idx !== -1) {
+      users[idx].name = name
+      if (telefono !== undefined) users[idx].telefono = telefono
+      localStorage.setItem(USERS_KEY, JSON.stringify(users))
+    }
+    setUser({ ...user, name, ...(telefono !== undefined ? { telefono } : {}) })
+    return { ok: true }
+  }
+
   const logout = () => {
     setUser(null)
     setProfile(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, setProfile, register, login, resetPassword, logout }}>
+    <AuthContext.Provider
+      value={{ user, profile, setProfile, register, login, resetPassword, updateProfile, logout }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -6,9 +6,7 @@ import {
   FiClock,
   FiCheckSquare,
   FiDollarSign,
-  FiUploadCloud,
 } from 'react-icons/fi'
-import { Link } from 'react-router-dom'
 
 const TIPO_STYLES = {
   Digitalizada: 'bg-blue-600/15 text-blue-400 ring-blue-500/30',
@@ -25,11 +23,11 @@ const TIPO_ICONS = {
 }
 
 const trabajosRecientes = [
-  { id: 'HV-1024', persona: 'María Fernanda Rojas', tipo: 'Digitalizada', pago: 2.5, hora: '09:12 a. m.' },
-  { id: 'HV-1023', persona: 'Carlos Andrés Peña', tipo: 'Impresa', pago: 1.0, hora: '09:40 a. m.' },
-  { id: 'HV-1019', persona: 'Luisa Martínez', tipo: 'Modificada', pago: 1.8, hora: '10:05 a. m.' },
-  { id: 'HV-1018', persona: 'Jorge Iván Ramírez', tipo: 'Guardada', pago: 0.8, hora: '10:22 a. m.' },
-  { id: 'HV-1017', persona: 'Ana Sofía Cárdenas', tipo: 'Digitalizada', pago: 2.5, hora: '10:51 a. m.' },
+  { id: 'HV-1024', persona: 'María Fernanda Rojas', tipo: 'Digitalizada', digitador: 'María Victoria Rojas', pago: 2.5, hora: '09:12 a. m.' },
+  { id: 'HV-1023', persona: 'Carlos Andrés Peña', tipo: 'Impresa', digitador: 'Jorge Iván Ramírez', pago: 1.0, hora: '09:40 a. m.' },
+  { id: 'HV-1019', persona: 'Luisa Martínez', tipo: 'Modificada', digitador: 'María Victoria Rojas', pago: 1.8, hora: '10:05 a. m.' },
+  { id: 'HV-1018', persona: 'Jorge Iván Ramírez', tipo: 'Guardada', digitador: 'Ana Sofía Cárdenas', pago: 0.8, hora: '10:22 a. m.' },
+  { id: 'HV-1017', persona: 'Ana Sofía Cárdenas', tipo: 'Digitalizada', digitador: 'Jorge Iván Ramírez', pago: 2.5, hora: '10:51 a. m.' },
 ]
 
 const stats = [
@@ -49,20 +47,14 @@ const tareas = [
 
 export default function DigitInicio() {
   const progreso = Math.round((tareas.filter((t) => t.done).length / tareas.length) * 100)
-  const ganadoSemana = trabajosRecientes.reduce((a, t) => a + t.pago, 0)
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-white">Centro de digitación</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Digitaliza, imprime, guarda y modifica hojas de vida. Ganas por cada trabajo completado.
-          </p>
-        </div>
-        <Link to="/digitacion/productos" className="btn-primary !px-4 !py-2.5 !text-xs">
-          <FiUploadCloud /> Nueva hoja de vida
-        </Link>
+    <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden lg:max-h-[calc(100vh-8rem)]">
+      <div>
+        <h2 className="text-2xl font-black text-white">Centro de digitación</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Digitaliza, imprime, guarda y modifica hojas de vida. Ganas por cada trabajo completado.
+        </p>
       </div>
 
       {/* Stats */}
@@ -85,16 +77,16 @@ export default function DigitInicio() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-3">
         {/* Trabajos recientes */}
-        <div className="panel overflow-hidden xl:col-span-2">
+        <div className="panel flex min-h-0 flex-col overflow-hidden xl:col-span-2">
           <div className="flex items-center justify-between border-b border-white/5 px-6 py-5">
             <h3 className="font-bold text-white">Últimos trabajos realizados</h3>
-            <Link to="/digitacion/historial" className="text-xs font-semibold text-blue-400 hover:text-blue-300">
-              Ver todos →
-            </Link>
+            <span className="rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
+              Global
+            </span>
           </div>
-          <ul className="divide-y divide-white/5">
+          <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
             {trabajosRecientes.map((t) => {
               const Icon = TIPO_ICONS[t.tipo]
               return (
@@ -105,7 +97,8 @@ export default function DigitInicio() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-white">{t.persona}</p>
                     <p className="truncate text-xs text-slate-500">
-                      {t.id} · {t.hora}
+                      {t.id} · {t.hora} · Por:{' '}
+                      <span className="font-semibold text-slate-400">{t.digitador}</span>
                     </p>
                   </div>
                   <span
@@ -113,62 +106,41 @@ export default function DigitInicio() {
                   >
                     {t.tipo}
                   </span>
-                  <span className="shrink-0 text-sm font-bold text-emerald-400">+ S/ {t.pago.toFixed(2)}</span>
                 </li>
               )
             })}
           </ul>
         </div>
 
-        {/* Tareas y ganancias */}
-        <div className="space-y-6">
-          <div className="panel p-6">
-            <div className="flex items-center gap-3">
-              <FiClock className="text-blue-400" />
-              <h3 className="font-bold text-white">Tareas del día</h3>
-            </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-night-700">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-500"
-                style={{ width: `${progreso}%` }}
-              />
-            </div>
-            <p className="mt-2 text-right text-xs font-semibold text-blue-400">{progreso}% completado</p>
-            <ul className="mt-4 space-y-3">
-              {tareas.map((t) => (
-                <li key={t.t} className="flex items-start gap-3 text-sm">
-                  <span
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] ring-1 ${
-                      t.done
-                        ? 'bg-emerald-500/20 text-emerald-400 ring-emerald-500/40'
-                        : 'bg-white/5 text-transparent ring-white/15'
-                    }`}
-                  >
-                    ✓
-                  </span>
-                  <span className={t.done ? 'text-slate-500 line-through' : 'text-slate-300'}>{t.t}</span>
-                </li>
-              ))}
-            </ul>
+        {/* Tareas del día */}
+        <div className="panel flex min-h-0 flex-col overflow-hidden p-6">
+          <div className="flex items-center gap-3">
+            <FiClock className="text-blue-400" />
+            <h3 className="font-bold text-white">Tareas del día</h3>
           </div>
-
-          <div className="panel p-6">
-            <h3 className="font-bold text-white">Mis ganancias</h3>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-3 ring-1 ring-white/5">
-                <dt className="text-slate-400">Hoy</dt>
-                <dd className="font-black text-emerald-400">S/ 86.00</dd>
-              </div>
-              <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-3 ring-1 ring-white/5">
-                <dt className="text-slate-400">Esta sesión</dt>
-                <dd className="font-black text-white">S/ {ganadoSemana.toFixed(2)}</dd>
-              </div>
-              <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-3 ring-1 ring-white/5">
-                <dt className="text-slate-400">Pagos pendientes</dt>
-                <dd className="font-black text-amber-400">S/ 12.50</dd>
-              </div>
-            </dl>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-night-700">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-500"
+              style={{ width: `${progreso}%` }}
+            />
           </div>
+          <p className="mt-2 text-right text-xs font-semibold text-blue-400">{progreso}% completado</p>
+          <ul className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            {tareas.map((t) => (
+              <li key={t.t} className="flex items-start gap-3 text-sm">
+                <span
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] ring-1 ${
+                    t.done
+                      ? 'bg-emerald-500/20 text-emerald-400 ring-emerald-500/40'
+                      : 'bg-white/5 text-transparent ring-white/15'
+                  }`}
+                >
+                  ✓
+                </span>
+                <span className={t.done ? 'text-slate-500 line-through' : 'text-slate-300'}>{t.t}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>

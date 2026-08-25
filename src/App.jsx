@@ -21,6 +21,7 @@ import DigitEscaneos from './pages/digitacion/DigitEscaneos'
 import DigitDisenos from './pages/digitacion/DigitDisenos'
 import DigitImagenes from './pages/digitacion/DigitImagenes'
 import DigitDocumentos from './pages/digitacion/DigitDocumentos'
+import DigitAjustes from './pages/digitacion/DigitAjustes'
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/digitacion/disenos" element={<DigitDisenos />} />
           <Route path="/digitacion/imagenes" element={<DigitImagenes />} />
           <Route path="/digitacion/documentos" element={<DigitDocumentos />} />
+          <Route path="/digitacion/ajustes" element={<DigitAjustes />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
