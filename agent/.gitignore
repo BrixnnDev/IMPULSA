@@ -22,17 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Server
-server/node_modules
-server/uploads
-server/.env
-server/watcher/config.json
-server/watcher/sent.json
-server/watcher/*.exe
-
-# Agent (Tauri) build artifacts
-agent/node_modules
-agent/dist
-agent/src-tauri/target
-agent/src-tauri/gen

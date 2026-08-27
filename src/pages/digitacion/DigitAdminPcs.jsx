@@ -188,12 +188,11 @@ export default function DigitAdminPcs() {
 
       {/* Modal emparejar PC */}
       {codigoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setCodigoModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiMonitor size={18} /></span>
               <div><h3 className="font-bold text-white">{codigoModal.etiqueta}</h3><p className="text-xs text-slate-400">{fase === 'conectada' ? 'Conectada' : fase === 'conectando' ? 'Conectando...' : fase === 'info' ? 'Información' : 'Emparejar PC'}</p></div>
-              <button onClick={() => setCodigoModal(null)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
 
             <div className="space-y-4">
@@ -201,7 +200,7 @@ export default function DigitAdminPcs() {
               {fase === 'codigo' && (
                 <>
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-center">
-                    <p className="text-xs font-semibold text-slate-300">Paso 1 — Copia este código:</p>
+                    <p className="text-xs font-semibold text-slate-300">Código de emparejamiento:</p>
                     <div className="mt-3 flex items-center justify-center gap-3">
                       <span className="rounded-xl bg-black/40 px-6 py-4 font-mono text-3xl font-black tracking-widest text-emerald-400 ring-1 ring-emerald-500/30 select-all">{codigoModal.codigo}</span>
                       <button onClick={() => copiar(codigoModal.codigo, 'codigo')} className="rounded-xl p-3 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código">
@@ -211,16 +210,12 @@ export default function DigitAdminPcs() {
                     {copiado === 'codigo' && <p className="mt-2 text-xs text-emerald-400">Copiado al portapapeles</p>}
                   </div>
 
-                  <div className="rounded-xl border border-white/5 bg-black/30 p-4 space-y-2 text-center">
-                    <p className="text-xs font-semibold text-slate-300">Paso 2 — En la otra PC:</p>
-                    <p className="text-[11px] text-slate-500">Abre CMD y ejecuta el .bat, pega el código cuando lo pida.</p>
-                    <div className="flex items-center justify-center gap-2 pt-1">
-                      <span className="relative flex h-3 w-3">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500"></span>
-                      </span>
-                      <span className="text-xs font-semibold text-amber-400">Esperando conexión...</span>
-                    </div>
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <span className="relative flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500"></span>
+                    </span>
+                    <span className="text-xs font-semibold text-amber-400">Esperando conexión...</span>
                   </div>
                 </>
               )}
@@ -276,9 +271,9 @@ export default function DigitAdminPcs() {
               )}
             </div>
 
-            <button onClick={() => setCodigoModal(null)} className="btn-primary w-full !py-2.5 !text-xs">
-              {fase === 'conectada' ? 'Entendido' : fase === 'conectando' ? 'Cerrar' : fase === 'info' ? 'Cerrar' : 'Cerrar'}
-            </button>
+            {fase === 'conectada' && (
+              <button onClick={() => setCodigoModal(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
+            )}
           </div>
         </div>
       )}

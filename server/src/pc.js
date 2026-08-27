@@ -220,6 +220,91 @@ export function pcRouter(io) {
     res.json({ ok: true })
   })
 
+  // Info del usuario dueño del código (para el agente)
+  r.get('/user-info', (req, res) => {
+    const { code } = req.query
+    if (!code) return res.status(400).json({ ok: false, error: 'Falta código.' })
+    const db = loadDB()
+    const found = db.find((p) => p.codigo === code.toUpperCase())
+    if (!found) return res.status(404).json({ ok: false, error: 'Código no encontrado.' })
+    res.json({
+      ok: true,
+      user: {
+        name: found.responsable || found.etiqueta || 'Sin nombre',
+        email: found.email || '',
+        avatar_url: found.avatar_url || '',
+        role: found.rol || 'digitador',
+      },
+      pc: {
+        id: found.id,
+        etiqueta: found.etiqueta,
+        ip: found.ip,
+        mac: found.mac,
+        sistema: found.sistema,
+      },
+    })
+  })
+
+  // El agente reporta su info del sistema al emparejar
+  r.post('/report-system', (req, res) => {
+    const { code, pc_name, ip, mac, sistema } = req.body
+    if (!code) return res.status(400).json({ ok: false, error: 'Falta código.' })
+    const db = loadDB()
+    const found = db.find((p) => p.codigo === code.toUpperCase())
+    if (!found) return res.status(404).json({ ok: false, error: 'Código no válido.' })
+    if (pc_name) found.etiqueta = pc_name
+    if (ip) found.ip = ip
+    if (mac) found.mac = mac
+    if (sistema) found.sistema = sistema
+    found.emparejada = true
+    found.fechaEmparejada = new Date().toISOString()
+    saveDB(db)
+    io.emit('pc:system-report', { id: found.id, ip, mac, sistema })
+    res.json({
+      ok: true,
+      user: {
+        name: found.responsable || found.etiqueta || 'Sin nombre',
+        email: found.email || '',
+        avatar_url: found.avatar_url || '',
+        role: found.rol || 'digitador',
+      },
+    })
+  })
+
+  // La web actualiza datos del usuario dueño de la PC
+  r.post('/update-user', (req, res) => {
+    const { code, name, email, avatar_url, role } = req.body
+    if (!code) return res.status(400).json({ ok: false, error: 'Falta código.' })
+    const db = loadDB()
+    const found = db.find((p) => p.codigo === code.toUpperCase())
+    if (!found) return res.status(404).json({ ok: false, error: 'Código no encontrado.' })
+    if (name !== undefined) found.responsable = name
+    if (email !== undefined) found.email = email
+    if (avatar_url !== undefined) found.avatar_url = avatar_url
+    if (role !== undefined) found.rol = role
+    saveDB(db)
+    io.emit('pc:user-updated', { id: found.id, name: found.responsable, email: found.email })
+    res.json({ ok: true })
+  })
+
+  // La web obtiene info completa de una PC por código
+  r.get('/detail', (req, res) => {
+    const { code } = req.query
+    if (!code) return res.status(400).json({ ok: false, error: 'Falta código.' })
+    const db = loadDB()
+    const found = db.find((p) => p.codigo === code.toUpperCase())
+    if (!found) return res.status(404).json({ ok: false, error: 'Código no encontrado.' })
+    const s = pcState.get(found.id) || pcState.get(found.etiqueta)
+    res.json({
+      ok: true,
+      pc: {
+        ...found,
+        online: s ? Date.now() - s.lastSeen < 90000 : false,
+        lastSeen: s?.lastSeen || null,
+      },
+    })
+  })
+
   return r
 }
 

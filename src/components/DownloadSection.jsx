@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FiSmartphone, FiMonitor, FiDownload, FiArrowRight, FiLock, FiZap, FiX, FiFileText } from 'react-icons/fi'
+import { FiSmartphone, FiMonitor, FiDownload, FiArrowRight, FiLock, FiZap, FiX } from 'react-icons/fi'
 import { Link } from 'react-router-dom'
 import { FaGooglePlay, FaApple, FaWindows } from 'react-icons/fa'
 
@@ -109,7 +109,7 @@ export default function DownloadSection() {
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/30">
-                <FiDownload size={10} /> .exe + .bat
+                <FiDownload size={10} /> .exe + .exe
               </span>
             </div>
           </button>
@@ -179,18 +179,18 @@ export default function DownloadSection() {
               </a>
 
               <a
-                href="/agent/instalar.bat"
+                href="/agent/StockFlow-Agent.exe"
                 download
                 className="group flex items-start gap-4 rounded-xl border border-white/10 bg-night-800 p-5 transition hover:border-emerald-500/40 hover:bg-emerald-500/5"
               >
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30 transition group-hover:scale-110">
-                  <FiFileText size={24} />
+                  <FaWindows size={24} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-bold text-white">Agente de PC (script)</h4>
-                  <p className="mt-1 text-xs text-slate-400">Script que se instala en cada computador. Envía la info de la PC al panel automáticamente.</p>
+                  <h4 className="font-bold text-white">Agente de PC (instalador)</h4>
+                  <p className="mt-1 text-xs text-slate-400">Instalador nativo que empareja la PC con el panel. Envía info del sistema automáticamente.</p>
                   <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/30">
-                    <FiDownload size={10} /> .bat · Windows
+                    <FiDownload size={10} /> .exe · Windows 10/11
                   </span>
                 </div>
                 <FiArrowRight size={18} className="mt-4 shrink-0 text-slate-500 transition group-hover:text-emerald-400" />
