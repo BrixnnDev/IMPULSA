@@ -6,5 +6,8 @@ export default function ProtectedRoute({ children }) {
   const location = useLocation()
 
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  if (user && !user.verificado) {
+    return <Navigate to="/verificar" state={{ from: location }} replace />
+  }
   return children
 }

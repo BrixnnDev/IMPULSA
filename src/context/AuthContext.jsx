@@ -2,11 +2,9 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const AuthContext = createContext(null)
 
-const USERS_KEY = 'sf_users'
 const SESSION_KEY = 'sf_session'
 const PROFILE_KEY = 'sf_profile'
-
-const ADMIN_USER = { name: 'Administrador', email: 'admin@stockflow.com', password: 'admin123', role: 'admin', telefono: '' }
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 
 const read = (key, fallback) => {
   try {
@@ -16,26 +14,8 @@ const read = (key, fallback) => {
   }
 }
 
-// Semilla: si no hay usuarios, crear el admin por defecto
-function seedAdmin() {
-  const users = read(USERS_KEY, [])
-  if (users.length === 0) {
-    localStorage.setItem(USERS_KEY, JSON.stringify([ADMIN_USER]))
-    return [ADMIN_USER]
-  }
-  // Si el admin fue borrado, volver a crearlo
-  if (!users.some((u) => u.email === ADMIN_USER.email)) {
-    users.push(ADMIN_USER)
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-  }
-  return users
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    seedAdmin()
-    return read(SESSION_KEY, null)
-  })
+  const [user, setUser] = useState(() => read(SESSION_KEY, null))
   const [profile, setProfile] = useState(() => localStorage.getItem(PROFILE_KEY) || null)
 
   useEffect(() => {
@@ -48,47 +28,85 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem(PROFILE_KEY)
   }, [profile])
 
-  const register = ({ name, email, password }) => {
-    const users = read(USERS_KEY, [])
-    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-      return { ok: false, error: 'Este correo ya está registrado. Inicia sesión.' }
+  const register = async ({ name, email, password }) => {
+    try {
+      const res = await fetch(`${API}/api/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error || 'Error al registrar.' }
+      setUser(data.user)
+      setProfile(null)
+      return { ok: true, requiereVerificacion: !data.user.verificado }
+    } catch {
+      return { ok: false, error: 'Sin conexión con el servidor.' }
     }
-    users.push({ name, email, password, role: 'digitador' })
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-    return { ok: true }
   }
 
-  const login = ({ email, password }) => {
-    const users = read(USERS_KEY, [])
-    const found = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password,
-    )
-    if (!found) return { ok: false, error: 'Correo o contraseña incorrectos.' }
-    setUser({ name: found.name, email: found.email, role: found.role || 'digitador' })
-    setProfile(null)
-    return { ok: true }
-  }
-
-  const resetPassword = ({ email, password }) => {
-    const users = read(USERS_KEY, [])
-    const idx = users.findIndex((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (idx === -1) return { ok: false, error: 'No existe una cuenta con ese correo.' }
-    users[idx].password = password
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-    return { ok: true }
-  }
-
-  const updateProfile = ({ name, telefono }) => {
-    if (!user) return { ok: false, error: 'No hay sesión activa.' }
-    const users = read(USERS_KEY, [])
-    const idx = users.findIndex((u) => u.email.toLowerCase() === user.email.toLowerCase())
-    if (idx !== -1) {
-      users[idx].name = name
-      if (telefono !== undefined) users[idx].telefono = telefono
-      localStorage.setItem(USERS_KEY, JSON.stringify(users))
+  const login = async ({ email, password }) => {
+    try {
+      const res = await fetch(`${API}/api/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error || 'Error al iniciar sesión.' }
+      setUser(data.user)
+      setProfile(null)
+      return { ok: true, requiereVerificacion: data.requiereVerificacion }
+    } catch {
+      return { ok: false, error: 'Sin conexión con el servidor.' }
     }
-    setUser({ ...user, name, ...(telefono !== undefined ? { telefono } : {}) })
-    return { ok: true }
+  }
+
+  const verificar = async ({ email, codigo }) => {
+    try {
+      const res = await fetch(`${API}/api/users/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, codigo }),
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error || 'Código incorrecto.' }
+      setUser(data.user)
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'Sin conexión con el servidor.' }
+    }
+  }
+
+  const resetPassword = async ({ email, password }) => {
+    try {
+      const res = await fetch(`${API}/api/users/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error || 'Error.' }
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'Sin conexión con el servidor.' }
+    }
+  }
+
+  const updateProfile = async ({ name, telefono }) => {
+    try {
+      const res = await fetch(`${API}/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, telefono }),
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error || 'Error.' }
+      setUser(data.user)
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'Sin conexión con el servidor.' }
+    }
   }
 
   const logout = () => {
@@ -96,11 +114,23 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.rol === 'admin'
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, setProfile, register, login, resetPassword, updateProfile, logout, isAdmin }}
+      value={{
+        user,
+        profile,
+        setProfile,
+        register,
+        login,
+        verificar,
+        resetPassword,
+        updateProfile,
+        logout,
+        isAdmin,
+        requiereVerificacion: !!user && !user.verificado,
+      }}
     >
       {children}
     </AuthContext.Provider>

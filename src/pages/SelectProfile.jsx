@@ -29,6 +29,11 @@ export default function SelectProfile() {
   const { user, setProfile, logout } = useAuth()
   const navigate = useNavigate()
 
+  const rol = user?.rol || 'digitador'
+  const disponibles = profiles.filter((p) =>
+    rol === 'admin' ? true : rol === 'pos' ? p.key === 'pos' : p.key === 'digitacion'
+  )
+
   const choose = (key) => {
     setProfile(key)
     navigate(key === 'pos' ? '/pos' : '/digitacion')
@@ -89,7 +94,7 @@ export default function SelectProfile() {
         </p>
 
         <div className="mt-7 grid grid-cols-1 gap-5 md:mt-9 md:grid-cols-2">
-          {profiles.map(({ key, title, subtitle, icon: Icon, desc, bullets, accent, highlight }) => (
+          {disponibles.map(({ key, title, subtitle, icon: Icon, desc, bullets, accent, highlight }) => (
             <button
               key={key}
               onClick={() => choose(key)}

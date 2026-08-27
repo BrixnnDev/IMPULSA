@@ -71,7 +71,11 @@ export default function PairScreen({ serverUrl, setServerUrl, pairingCode, setPa
             type="text"
             className="input-field"
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onChange={(e) => {
+              let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+              if (val.length > 4) val = val.slice(0, 4) + '-' + val.slice(4, 8)
+              setCode(val)
+            }}
             placeholder="XXXX-XXXX"
             style={{
               textAlign: 'center',

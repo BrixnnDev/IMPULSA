@@ -7,6 +7,8 @@ import { verifyWebhook, parseIncoming, sendWhatsApp } from './whatsapp.js'
 import { authUrl, saveCode, isReady, listRecent, sendMail } from './gmail.js'
 import { scansRouter } from './scans.js'
 import { pcRouter } from './pc.js'
+import { usersRouter } from './users.js'
+import { initDb } from './db.js'
 
 const cfg = {
   port: process.env.PORT || 8787,
@@ -69,6 +71,7 @@ app.post('/api/whatsapp/send', async (req, res) => {
 
 app.use('/api/scans', scansRouter(io))
 app.use('/api/pc', pcRouter(io))
+app.use('/api/users', usersRouter(io))
 
 /* ============ GMAIL (OAuth2 oficial de Google) ============ */
 
@@ -115,8 +118,13 @@ async function pollGmail() {
 }
 setInterval(pollGmail, 15000)
 
-server.listen(cfg.port, () => {
-  console.log(`StockFlow server en http://localhost:${cfg.port}`)
-  console.log('WhatsApp webhook: POST /api/whatsapp/webhook')
-  if (!isReady()) console.log(`Conecta Gmail abriendo: http://localhost:${cfg.port}/api/gmail/auth`)
+initDb().then(() => {
+  server.listen(cfg.port, () => {
+    console.log(`StockFlow server en http://localhost:${cfg.port}`)
+    console.log('WhatsApp webhook: POST /api/whatsapp/webhook')
+    if (!isReady()) console.log(`Conecta Gmail abriendo: http://localhost:${cfg.port}/api/gmail/auth`)
+  })
+}).catch((err) => {
+  console.error('[db] No se pudo conectar a PostgreSQL:', err.message)
+  process.exit(1)
 })

@@ -1,0 +1,1 @@
+Fix: codigo emparejamiento 8 chars con/sin guion, normalizacion server+agent, devuelve user info y PC data

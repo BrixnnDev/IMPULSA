@@ -22,6 +22,9 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
         setPhase(2)
         setStatus('Obteniendo info del sistema...')
 
+        // Normalizar código: quitar guiones para el servidor
+        const cleanCode = pairingCode.replace(/-/g, '')
+
         let sysInfo = null
         try {
           sysInfo = await invoke('get_system_info')
@@ -44,7 +47,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              code: pairingCode,
+              code: cleanCode,
               pc_name: sysInfo.computer_name,
               ip: sysInfo.local_ip,
               mac: sysInfo.mac_address,
@@ -61,7 +64,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                codigo: pairingCode,
+                codigo: cleanCode,
                 pc: sysInfo.computer_name,
                 ip: sysInfo.local_ip,
                 mac: sysInfo.mac_address,

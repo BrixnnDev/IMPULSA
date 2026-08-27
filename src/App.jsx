@@ -8,6 +8,7 @@ import Landing from './pages/Landing'
 import AuthPage from './pages/AuthPage'
 import ForgotPassword from './pages/ForgotPassword'
 import SelectProfile from './pages/SelectProfile'
+import VerifyPage from './pages/VerifyPage'
 
 import PosInicio from './pages/pos/PosInicio'
 import PosInventario from './pages/pos/PosInventario'
@@ -23,6 +24,7 @@ import DigitImagenes from './pages/digitacion/DigitImagenes'
 import DigitDocumentos from './pages/digitacion/DigitDocumentos'
 import DigitAjustes from './pages/digitacion/DigitAjustes'
 import DigitAdminPcs from './pages/digitacion/DigitAdminPcs'
+import DigitRegistros from './pages/digitacion/DigitRegistros'
 
 export default function App() {
   return (
@@ -33,6 +35,7 @@ export default function App() {
         <Route path="/login" element={<GuestRoute><AuthPage initialMode="login" /></GuestRoute>} />
         <Route path="/registro" element={<GuestRoute><AuthPage initialMode="register" /></GuestRoute>} />
         <Route path="/olvide-contrasena" element={<ForgotPassword />} />
+        <Route path="/verificar" element={<VerifyPage />} />
 
         <Route
           path="/seleccionar-perfil"
@@ -58,6 +61,7 @@ export default function App() {
           <Route path="/digitacion/documentos" element={<DigitDocumentos />} />
           <Route path="/digitacion/ajustes" element={<DigitAjustes />} />
           <Route path="/digitacion/admin-pcs" element={<DigitAdminPcs />} />
+          <Route path="/digitacion/registros" element={<DigitRegistros />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

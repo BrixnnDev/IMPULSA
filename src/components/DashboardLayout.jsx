@@ -14,6 +14,7 @@ import {
   FiFileText,
   FiFolder,
   FiMonitor,
+  FiUsers,
 } from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { MdConfirmationNumber } from 'react-icons/md'
@@ -310,6 +311,7 @@ export default function DashboardLayout({ profile }) {
     links.push({
       title: 'Admin',
       items: [
+        { to: '/digitacion/registros', label: 'Registros', icon: FiUsers },
         { to: '/digitacion/admin-pcs', label: 'Administrar PCs', icon: FiMonitor },
       ],
     })
