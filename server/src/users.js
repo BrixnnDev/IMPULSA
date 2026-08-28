@@ -22,6 +22,7 @@ function publicUser(u) {
     codigo: u.codigo,
     creado: u.creado,
     verificadoEn: u.verificado_en || null,
+    avatar_url: u.avatar_url || '',
   }
 }
 
@@ -128,14 +129,15 @@ export function usersRouter(io) {
     }
   })
 
-  // Actualizar perfil (nombre, telefono)
+  // Actualizar perfil (nombre, telefono, avatar)
   r.patch('/:id', async (req, res) => {
     try {
-      const { name, telefono } = req.body
+      const { name, telefono, avatar_url } = req.body
       const fields = []
       const vals = []
       if (name?.trim()) { fields.push(`name = $${fields.length + 1}`); vals.push(name.trim()) }
       if (telefono !== undefined) { fields.push(`telefono = $${fields.length + 1}`); vals.push(telefono) }
+      if (avatar_url !== undefined) { fields.push(`avatar_url = $${fields.length + 1}`); vals.push(avatar_url) }
       if (!fields.length) return res.status(400).json({ ok: false, error: 'Sin cambios.' })
       vals.push(req.params.id)
       const q = await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${vals.length} RETURNING *`, vals)

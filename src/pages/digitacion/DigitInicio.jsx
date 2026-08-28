@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   FiFileText,
   FiPrinter,
@@ -7,6 +8,9 @@ import {
   FiCheckSquare,
   FiDollarSign,
 } from 'react-icons/fi'
+import { useAuth } from '../../context/AuthContext'
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 
 const TIPO_STYLES = {
   Digitalizada: 'bg-blue-600/15 text-blue-400 ring-blue-500/30',
@@ -22,20 +26,7 @@ const TIPO_ICONS = {
   Guardada: FiSave,
 }
 
-const trabajosRecientes = [
-  { id: 'HV-1024', persona: 'María Fernanda Rojas', tipo: 'Digitalizada', digitador: 'María Victoria Rojas', pago: 2.5, hora: '09:12 a. m.' },
-  { id: 'HV-1023', persona: 'Carlos Andrés Peña', tipo: 'Impresa', digitador: 'Jorge Iván Ramírez', pago: 1.0, hora: '09:40 a. m.' },
-  { id: 'HV-1019', persona: 'Luisa Martínez', tipo: 'Modificada', digitador: 'María Victoria Rojas', pago: 1.8, hora: '10:05 a. m.' },
-  { id: 'HV-1018', persona: 'Jorge Iván Ramírez', tipo: 'Guardada', digitador: 'Ana Sofía Cárdenas', pago: 0.8, hora: '10:22 a. m.' },
-  { id: 'HV-1017', persona: 'Ana Sofía Cárdenas', tipo: 'Digitalizada', digitador: 'Jorge Iván Ramírez', pago: 2.5, hora: '10:51 a. m.' },
-]
-
-const stats = [
-  { label: 'Hojas de vida hoy', value: 14, icon: FiFileText },
-  { label: 'Por imprimir', value: 5, icon: FiPrinter, warn: true },
-  { label: 'Trabajos pagados', value: 32, icon: FiCheckSquare },
-  { label: 'Ganado hoy', value: 'S/ 86.00', icon: FiDollarSign, money: true },
-]
+const trabajosRecientes = []
 
 const tareas = [
   { t: 'Digitalizar HV impresa de Dario Salgado (2 págs.)', done: true },
@@ -46,15 +37,66 @@ const tareas = [
 ]
 
 export default function DigitInicio() {
+  const { user } = useAuth()
+  const [comisiones, setComisiones] = useState([])
+  const proximo = 32
+
+  useEffect(() => {
+    fetch(`${API}/api/comisiones`)
+      .then((r) => r.json())
+      .then((arr) => setComisiones(Array.isArray(arr) ? arr : []))
+      .catch(() => {})
+  }, [])
+
+  const totalGanado = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
+  const pagados = comisiones.filter((c) => c.estado === 'Pagado').length
+  const ganadoHoy = comisiones
+    .filter((c) => {
+      const hoy = new Date().toDateString()
+      return new Date(c.fecha).toDateString() === hoy
+    })
+    .reduce((a, c) => a + (c.ganancia || 0), 0)
+
+  const stats = [
+    { label: 'Trabajos hoy', value: comisiones.length, icon: FiFileText },
+    { label: 'Por cobrar', value: comisiones.filter((c) => c.estado !== 'Pagado').length, icon: FiPrinter, warn: true },
+    { label: 'Trabajos pagados', value: pagados, icon: FiCheckSquare },
+    { label: 'Ganado', value: `S/ ${totalGanado.toFixed(2)}`, icon: FiDollarSign, money: true },
+  ]
+
+  const recientes = [...comisiones]
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .slice(0, 5)
+    .map((c) => ({
+      id: c.id,
+      persona: c.trabajador || 'Trabajo registrado',
+      tipo: c.estado === 'Pagado' ? 'Impresa' : 'Modificada',
+      digitador: user?.name || '—',
+      pago: c.total || 0,
+      hora: new Date(c.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+    }))
+    .concat(trabajosRecientes)
+
   const progreso = Math.round((tareas.filter((t) => t.done).length / tareas.length) * 100)
+  const saludo = `Hola, ${user?.name?.split(' ')[0] || 'digitador'}`
 
   return (
     <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden lg:max-h-[calc(100vh-8rem)]">
       <div>
-        <h2 className="text-2xl font-black text-white">Centro de digitación</h2>
+        <h2 className="text-2xl font-black text-white">{saludo} 👋</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Digitaliza, imprime, guarda y modifica hojas de vida. Ganas por cada trabajo completado.
+          {user?.email || 'Digitación'} · Ganas por cada trabajo completado que registres.
         </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600/20 text-base font-black text-blue-300 ring-1 ring-blue-500/40">
+          {user?.name?.charAt(0).toUpperCase() || 'U'}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
+          <p className="truncate text-xs text-slate-500">{user?.email || 'cuenta@stockflow.com'}</p>
+        </div>
       </div>
 
       {/* Stats */}
@@ -87,7 +129,12 @@ export default function DigitInicio() {
             </span>
           </div>
           <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
-            {trabajosRecientes.map((t) => {
+            {recientes.length === 0 ? (
+              <li className="flex items-center justify-center px-6 py-10 text-sm text-slate-500">
+                Aún no hay trabajos registrados.
+              </li>
+            ) : (
+              recientes.map((t) => {
               const Icon = TIPO_ICONS[t.tipo]
               return (
                 <li key={t.id} className="flex items-center gap-4 px-6 py-4">
@@ -108,7 +155,8 @@ export default function DigitInicio() {
                   </span>
                 </li>
               )
-            })}
+              })
+            )}
           </ul>
         </div>
 

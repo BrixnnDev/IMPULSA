@@ -226,7 +226,15 @@ export function pcRouter(io) {
   // Eliminar PC
   r.delete('/:id', async (req, res) => {
     try {
+      const q = await pool.query('SELECT * FROM pcs WHERE id = $1', [req.params.id])
+      const found = q.rows[0]
       await pool.query('DELETE FROM pcs WHERE id = $1', [req.params.id])
+      if (found) {
+        for (const k of [found.id, found.etiqueta]) pcState.delete(k)
+        io.emit('pc:removed', { id: found.id, codigo: found.codigo, etiqueta: found.etiqueta })
+        io.emit('pc:status', { pc: found.etiqueta, online: false })
+        console.log(`[pc] ${found.etiqueta} eliminada`)
+      }
       res.json({ ok: true })
     } catch (e) { console.error('[pc] delete:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })

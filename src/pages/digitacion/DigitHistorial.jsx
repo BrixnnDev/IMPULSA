@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   FiCheckCircle,
   FiDollarSign,
@@ -8,38 +8,40 @@ import {
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
-const seedTrabajos = [
-  { id: 'IMP-2041', cliente: 'María Fernanda Rojas', tipo: 'Impresión B/N', paginas: 5, monto: 2.5, fecha: new Date(Date.now() - 3600e3 * 3).toISOString(), estado: 'Pagado' },
-  { id: 'IMP-2042', cliente: 'Carlos Andrés Peña', tipo: 'Fotocopias', paginas: 12, monto: 6.0, fecha: new Date(Date.now() - 3600e3 * 2).toISOString(), estado: 'Pagado' },
-  { id: 'IMP-2043', cliente: 'Luisa Martínez', tipo: 'Impresión a color', paginas: 3, monto: 4.5, fecha: new Date(Date.now() - 3600e3).toISOString(), estado: 'Pendiente' },
-  { id: 'IMP-2044', cliente: 'Jorge Iván Ramírez', tipo: 'Escaneo', paginas: 8, monto: 3.0, fecha: new Date().toISOString(), estado: 'Pendiente' },
-]
-
-const seedComisiones = [
-  {
-    id: 'COM-101',
-    trabajador: 'María Victoria Rojas',
-    total: 60,
-    ganancia: 30,
-    nota: 'Impresiones B/N',
-    fecha: new Date(Date.now() - 3600e3 * 3).toISOString(),
-  },
-  {
-    id: 'COM-102',
-    trabajador: 'María Victoria Rojas',
-    total: 36,
-    ganancia: 18,
-    nota: '',
-    fecha: new Date(Date.now() - 3600e3).toISOString(),
-  },
-]
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 
 export default function DigitHistorial() {
-  const [trabajos, setTrabajos] = useState(seedTrabajos)
-  const [comisiones, setComisiones] = useState(seedComisiones)
+  const [trabajos, setTrabajos] = useState([])
+  const [comisiones, setComisiones] = useState([])
   const [mostrarComision, setMostrarComision] = useState(false)
   const [formCom, setFormCom] = useState({ total: '', nota: '' })
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
   const { user } = useAuth()
+
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        const lista = await fetch(`${API}/api/comisiones`).then((r) => r.json())
+        const arr = Array.isArray(lista) ? lista : []
+        setComisiones(arr)
+        setTrabajos(arr.map((c) => ({
+          id: c.id,
+          cliente: c.trabajador || 'Cliente',
+          tipo: 'Trabajo registrado',
+          paginas: 1,
+          monto: c.total || 0,
+          fecha: c.fecha,
+          estado: c.estado || 'Pendiente',
+        })))
+      } catch {
+        setError('No se pudieron cargar las comisiones.')
+      } finally {
+        setCargando(false)
+      }
+    }
+    cargar()
+  }, [user?.id])
 
   const totalNum = Number(formCom.total) || 0
   const mitad = totalNum / 2
@@ -48,24 +50,53 @@ export default function DigitHistorial() {
   const totalGanancias = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
   const totalPanaderia = totalGeneral - totalGanancias
 
-  const marcarPagado = (id) => {
-    setTrabajos((prev) => prev.map((t) => (t.id === id ? { ...t, estado: 'Pagado' } : t)))
+  const marcarPagado = async (id) => {
+    try {
+      await fetch(`${API}/api/comisiones/${id}/estado`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'Pagado' }),
+      })
+      setTrabajos((prev) => prev.map((t) => (t.id === id ? { ...t, estado: 'Pagado' } : t)))
+      setComisiones((prev) => prev.map((c) => (c.id === id ? { ...c, estado: 'Pagado' } : c)))
+    } catch {
+      setError('No se pudo marcar como pagado.')
+    }
   }
 
-  const registrarComision = (e) => {
+  const registrarComision = async (e) => {
     e.preventDefault()
     if (!formCom.total) return
-    const com = {
-      id: `COM-${103 + comisiones.length}`,
-      trabajador: user?.name || 'Usuario',
-      total: totalNum,
-      ganancia: mitad,
-      nota: formCom.nota.trim(),
-      fecha: new Date().toISOString(),
+    setError('')
+    try {
+      const r = await fetch(`${API}/api/comisiones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user?.id || '',
+          trabajador: user?.name || 'Usuario',
+          total: totalNum,
+          nota: formCom.nota.trim(),
+        }),
+      })
+      const data = await r.json()
+      if (!r.ok || !data.ok) throw new Error(data.error || 'Error al registrar')
+      setComisiones((prev) => [data.comision, ...prev])
+      const nuevo = {
+        id: data.comision.id,
+        cliente: data.comision.trabajador || 'Cliente',
+        tipo: 'Trabajo registrado',
+        paginas: 1,
+        monto: data.comision.total || 0,
+        fecha: data.comision.fecha,
+        estado: data.comision.estado || 'Pendiente',
+      }
+      setTrabajos((prev) => [nuevo, ...prev])
+      setMostrarComision(false)
+      setFormCom({ total: '', nota: '' })
+    } catch (err) {
+      setError(err.message)
     }
-    setComisiones((prev) => [com, ...prev])
-    setMostrarComision(false)
-    setFormCom({ total: '', nota: '' })
   }
 
   return (
@@ -163,8 +194,18 @@ export default function DigitHistorial() {
 
         {/* Historial de trabajos */}
         <div className="panel min-h-0 flex-1 overflow-hidden">
-          <ul className="h-full divide-y divide-white/5 overflow-y-auto">
-            {[...trabajos].reverse().map((t) => (
+          {error && (
+            <div className="border-b border-red-500/20 bg-red-500/10 px-5 py-2 text-xs text-red-300">{error}</div>
+          )}
+          {cargando ? (
+            <p className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Cargando…</p>
+          ) : trabajos.length === 0 ? (
+            <p className="flex h-full items-center justify-center p-10 text-sm text-slate-500">
+              Aún no hay trabajos registrados. Registra tu primera comisión.
+            </p>
+          ) : (
+            <ul className="h-full divide-y divide-white/5 overflow-y-auto">
+              {[...trabajos].reverse().map((t) => (
               <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition hover:bg-white/[0.03]">
                 <span className="rounded-lg bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">
                   {t.id}
@@ -193,7 +234,8 @@ export default function DigitHistorial() {
                 )}
               </li>
             ))}
-          </ul>
+            </ul>
+          )}
         </div>
       </div>
 

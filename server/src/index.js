@@ -8,6 +8,8 @@ import { authUrl, saveCode, isReady, listRecent, sendMail } from './gmail.js'
 import { scansRouter } from './scans.js'
 import { pcRouter, bindPcSocket, unbindPcSocket, markPcOffline } from './pc.js'
 import { usersRouter } from './users.js'
+import { documentsRouter } from './documents.js'
+import { comisionesRouter } from './comisiones.js'
 import { initDb } from './db.js'
 
 const cfg = {
@@ -79,7 +81,8 @@ app.post('/api/whatsapp/send', async (req, res) => {
 app.use('/api/scans', scansRouter(io))
 app.use('/api/pc', pcRouter(io))
 app.use('/api/users', usersRouter(io))
-
+app.use('/api/documents', documentsRouter(io))
+app.use('/api/comisiones', comisionesRouter(io))
 /* ============ GMAIL (OAuth2 oficial de Google) ============ */
 
 app.get('/api/gmail/status', (_req, res) =>

@@ -111,6 +111,26 @@ export default function DigitAjustes() {
         const min = Math.min(img.width, img.height)
         ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, 500, 500)
         setAvatar(canvas.toDataURL('image/jpeg', 0.85))
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+        ;(async () => {
+          try {
+            const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+            await fetch(`${API}/api/users/${user?.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ avatar_url: dataUrl }),
+            })
+            if (user?.id) {
+              const sesion = JSON.parse(localStorage.getItem('sf_session') || 'null')
+              if (sesion) {
+                sesion.avatar_url = dataUrl
+                localStorage.setItem('sf_session', JSON.stringify(sesion))
+              }
+            }
+          } catch {
+            /* el avatar queda igual en localStorage */
+          }
+        })()
         mostrarOk('Foto de perfil actualizada (500×500).')
       }
       img.src = reader.result
