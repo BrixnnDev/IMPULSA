@@ -49,11 +49,13 @@ export default function DigitInicio() {
   }, [])
 
   const pagados = comisiones.filter((c) => c.estado === 'Pagado').length
+  const totalGanado = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
 
   const stats = [
     { label: 'Trabajos hoy', value: comisiones.length, icon: FiFileText },
     { label: 'Por cobrar', value: comisiones.filter((c) => c.estado !== 'Pagado').length, icon: FiPrinter, warn: true },
     { label: 'Trabajos pagados', value: pagados, icon: FiCheckSquare },
+    { label: 'Ganado', value: `S/ ${totalGanado.toFixed(2)}`, icon: FiDollarSign, money: true },
   ]
 
   const recientes = [...comisiones]

@@ -629,6 +629,26 @@ export default function DashboardLayout({ profile }) {
             </div>
 
             <div className="border-t border-white/5 pt-4">
+              <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <FiDollarSign size={13} className="text-emerald-400" /> Mis ganancias · COP
+              </p>
+              <dl className="space-y-2.5 text-sm">
+                <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
+                  <dt className="text-slate-400">Hoy</dt>
+                  <dd className="font-black text-emerald-400">$ 0</dd>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
+                  <dt className="text-slate-400">Esta semana</dt>
+                  <dd className="font-black text-emerald-400">$ 0</dd>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
+                  <dt className="text-slate-400">Pagos pendientes</dt>
+                  <dd className="font-black text-amber-400">$ 0</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="border-t border-white/5 pt-4">
               <button
                 onClick={() => {
                   setPerfilOpen(false)
