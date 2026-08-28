@@ -251,6 +251,7 @@ export function pcRouter(io) {
       await pool.query(`UPDATE pcs SET etiqueta = $1, ip = $2, mac = $3, sistema = $4, emparejada = TRUE, fecha_emparejada = $5 WHERE id = $6`, [pc_name || found.etiqueta, ip || found.ip, mac || found.mac, sistema || found.sistema, new Date().toISOString(), found.id])
       const etiqueta = pc_name || found.etiqueta
       io.emit('pc:paired', { id: found.id, etiqueta })
+      io.emit('pc:connected', { id: found.id, etiqueta })
       io.emit('pc:status', { pc: etiqueta, online: true })
       io.emit('pc:system-report', { id: found.id, ip, mac, sistema })
       pcState.set(found.id, { lastSeen: Date.now(), online: true })

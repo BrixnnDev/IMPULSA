@@ -25,8 +25,10 @@ export default function DigitAdminPcs() {
     socketRef.current = s
     s.on('pc:status', ({ pc, online }) => {
       setPcStatus((prev) => ({ ...prev, [pc]: online }))
+    })
+    s.on('pc:connected', ({ id }) => {
       const cur = codigoModalRef.current
-      if (online && cur && cur.etiqueta === pc) {
+      if (cur && cur.id === id && cur._fase !== 'conectada') {
         setCodigoModal((prev) => prev ? { ...prev, _fase: 'conectada' } : prev)
         setTimeout(() => setCodigoModal(null), 2500)
       }

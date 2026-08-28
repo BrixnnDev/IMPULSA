@@ -57,25 +57,19 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
           if (resp.ok) {
             result = await resp.json()
             userInfo = result?.user || null
+          } else {
+            throw new Error('codigo_invalido')
           }
         } catch {
-          try {
-            const resp2 = await fetch(`${serverUrl}/api/pc/register-from-script`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                codigo: cleanCode,
-                pc: sysInfo.computer_name,
-                ip: sysInfo.local_ip,
-                mac: sysInfo.mac_address,
-                sistema: sysInfo.os_version,
-              }),
-            })
-            if (resp2.ok) result = await resp2.json()
-          } catch {}
+          // report-system fallo (codigo invalido o red caida): no emparejar
         }
 
         if (!mountedRef.current) return
+
+        if (!result) {
+          setStatus('Codigo de emparejamiento invalido')
+          throw new Error('Codigo invalido')
+        }
 
         setPhase(3)
         setStatus('Emparejamiento exitoso!')
