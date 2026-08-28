@@ -117,9 +117,9 @@ export default function AuthPage({ initialMode = 'login' }) {
                       <input
                         value={codigo}
                         onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                        placeholder="Código de 8 dígitos"
+                        placeholder="Código de 6 dígitos"
                         className="input-field !pl-11 text-center font-mono text-xl tracking-[0.3em]"
-                        maxLength={8}
+                        maxLength={6}
                         autoFocus
                       />
                     </div>

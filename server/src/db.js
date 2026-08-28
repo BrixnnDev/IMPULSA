@@ -16,8 +16,11 @@ const pool = new Pool({
 export async function initDb() {
   const client = await pool.connect()
   try {
+    // Rediseño completo de la base de datos: se reconstruyen las tablas
+    // (las claves quedan vacias al rediseñar; el admin maestro se re-siembra)
+    await client.query('DROP TABLE IF EXISTS prints, pcs, users CASCADE')
     await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
@@ -30,7 +33,7 @@ export async function initDb() {
         verificado_en TEXT
       );
 
-      CREATE TABLE IF NOT EXISTS pcs (
+      CREATE TABLE pcs (
         id TEXT PRIMARY KEY,
         etiqueta TEXT NOT NULL,
         responsable TEXT NOT NULL,
@@ -47,7 +50,7 @@ export async function initDb() {
         fecha_emparejada TEXT
       );
 
-      CREATE TABLE IF NOT EXISTS prints (
+      CREATE TABLE prints (
         id TEXT PRIMARY KEY,
         pc TEXT NOT NULL,
         responsable TEXT NOT NULL,
@@ -68,7 +71,7 @@ export async function initDb() {
       [new Date().toISOString()],
     )
 
-    console.log('[db] PostgreSQL conectado, tablas listas.')
+    console.log('[db] PostgreSQL conectado, base de datos rediseñada y lista.')
   } finally {
     client.release()
   }

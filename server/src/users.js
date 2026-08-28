@@ -2,8 +2,13 @@ import { Router } from 'express'
 import { randomBytes } from 'crypto'
 import { pool } from './db.js'
 
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
 function generarCodigo() {
-  return randomBytes(5).toString('hex').toUpperCase().slice(0, 8)
+  const bytes = randomBytes(6)
+  let code = ''
+  for (let i = 0; i < 6; i++) code += CHARS[bytes[i] % CHARS.length]
+  return code
 }
 
 function publicUser(u) {

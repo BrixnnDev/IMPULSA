@@ -30,11 +30,11 @@ export default function SelectProfile() {
   const navigate = useNavigate()
 
   const rol = user?.rol || 'digitador'
-  const disponibles = profiles.filter((p) =>
-    rol === 'admin' ? true : rol === 'pos' ? p.key === 'pos' : p.key === 'digitacion'
-  )
+  const puedePos = rol === 'admin' || rol === 'pos'
+  const canChoose = (key) => (key === 'pos' ? puedePos : true)
 
   const choose = (key) => {
+    if (!canChoose(key)) return
     setProfile(key)
     navigate(key === 'pos' ? '/pos' : '/digitacion')
   }
@@ -94,46 +94,56 @@ export default function SelectProfile() {
         </p>
 
         <div className="mt-7 grid grid-cols-1 gap-5 md:mt-9 md:grid-cols-2">
-          {disponibles.map(({ key, title, subtitle, icon: Icon, desc, bullets, accent, highlight }) => (
-            <button
-              key={key}
-              onClick={() => choose(key)}
-              className={`panel group relative overflow-hidden p-6 text-left transition duration-300 hover:-translate-y-1.5 hover:border-blue-500/40 ${
-                highlight ? 'ring-1 ring-blue-500/30 hover:shadow-2xl hover:shadow-blue-600/20' : ''
-              }`}
-            >
-              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent} opacity-60`} />
-              <div className="relative">
-                <div className="flex items-start justify-between">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-3xl text-white shadow-lg shadow-blue-600/40 transition group-hover:scale-110">
-                    <Icon />
-                  </span>
-                  {highlight && (
-                    <span className="rounded-full bg-blue-600/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/40">
-                      Más usado
+          {profiles.map(({ key, title, subtitle, icon: Icon, desc, bullets, accent, highlight }) => {
+            const blocked = !canChoose(key)
+            return (
+              <button
+                key={key}
+                onClick={() => choose(key)}
+                disabled={blocked}
+                className={`panel group relative overflow-hidden p-6 text-left transition duration-300 ${
+                  blocked
+                    ? 'cursor-not-allowed opacity-60 saturate-50'
+                    : 'hover:-translate-y-1.5 hover:border-blue-500/40'
+                } ${highlight ? 'ring-1 ring-blue-500/30' : ''}`}
+              >
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent} opacity-60`} />
+                <div className="relative">
+                  <div className="flex items-start justify-between">
+                    <span className={`flex h-14 w-14 items-center justify-center rounded-2xl text-3xl text-white shadow-lg shadow-blue-600/40 transition group-hover:scale-110 ${blocked ? 'bg-slate-700' : 'bg-blue-600 shadow-blue-600/40'}`}>
+                      <Icon />
                     </span>
-                  )}
+                    {highlight && (
+                      <span className="rounded-full bg-blue-600/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/40">
+                        Más usado
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-blue-400">{subtitle}</p>
+                  <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">{title}</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-400">{desc}</p>
+
+                  <ul className="mt-3 space-y-1.5">
+                    {bullets.map((b) => (
+                      <li key={b} className="flex items-center gap-2 text-sm text-slate-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <span className={`mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ring-1 ${
+                    blocked
+                      ? 'bg-slate-800/40 ring-slate-600/40 text-slate-500'
+                      : 'bg-white/5 text-blue-300 ring-blue-500/30 transition group-hover:bg-blue-600 group-hover:text-white'
+                  }`}>
+                    {blocked ? 'Bloqueado — requiere rol POS' : <>Entrar al dashboard <FiArrowRight className="transition group-hover:translate-x-1" /></>}
+                  </span>
                 </div>
-
-                <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-blue-400">{subtitle}</p>
-                <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">{title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">{desc}</p>
-
-                <ul className="mt-3 space-y-1.5">
-                  {bullets.map((b) => (
-                    <li key={b} className="flex items-center gap-2 text-sm text-slate-300">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-
-                <span className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-sm font-semibold text-blue-300 ring-1 ring-blue-500/30 transition group-hover:bg-blue-600 group-hover:text-white">
-                  Entrar al dashboard <FiArrowRight className="transition group-hover:translate-x-1" />
-                </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
