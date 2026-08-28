@@ -94,6 +94,13 @@ export async function initDb() {
         estado TEXT DEFAULT 'Pendiente',
         fecha TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS user_settings (
+        user_id TEXT NOT NULL,
+        clave TEXT NOT NULL,
+        valor TEXT DEFAULT '',
+        PRIMARY KEY (user_id, clave)
+      );
     `)
 
     // Seed del admin maestro

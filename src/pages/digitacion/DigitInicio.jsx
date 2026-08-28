@@ -48,20 +48,12 @@ export default function DigitInicio() {
       .catch(() => {})
   }, [])
 
-  const totalGanado = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
   const pagados = comisiones.filter((c) => c.estado === 'Pagado').length
-  const ganadoHoy = comisiones
-    .filter((c) => {
-      const hoy = new Date().toDateString()
-      return new Date(c.fecha).toDateString() === hoy
-    })
-    .reduce((a, c) => a + (c.ganancia || 0), 0)
 
   const stats = [
     { label: 'Trabajos hoy', value: comisiones.length, icon: FiFileText },
     { label: 'Por cobrar', value: comisiones.filter((c) => c.estado !== 'Pagado').length, icon: FiPrinter, warn: true },
     { label: 'Trabajos pagados', value: pagados, icon: FiCheckSquare },
-    { label: 'Ganado', value: `S/ ${totalGanado.toFixed(2)}`, icon: FiDollarSign, money: true },
   ]
 
   const recientes = [...comisiones]
@@ -72,7 +64,6 @@ export default function DigitInicio() {
       persona: c.trabajador || 'Trabajo registrado',
       tipo: c.estado === 'Pagado' ? 'Impresa' : 'Modificada',
       digitador: user?.name || '—',
-      pago: c.total || 0,
       hora: new Date(c.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
     }))
     .concat(trabajosRecientes)

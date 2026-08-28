@@ -29,7 +29,7 @@ const EMAIL_COLORS = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-ambe
 const SEED_NOTIFS = [
   { id: 1, titulo: 'Impresión completada', desc: 'HV-1023 · Carlos Andrés Peña', hora: 'Hace 5 min', unread: true, color: 'bg-blue-600/15 text-blue-400', icon: null },
   { id: 2, titulo: 'Nuevo documento firmado', desc: 'Contrato alquiler local · DOC-0521', hora: 'Hace 20 min', unread: true, color: 'bg-emerald-500/15 text-emerald-400', icon: null },
-  { id: 3, titulo: 'Pago recibido', desc: 'Valecito IMP-2041 · $ 1.250 COP', hora: 'Hace 1 h', unread: true, color: 'bg-amber-500/15 text-amber-400', icon: null },
+  { id: 3, titulo: 'Pago recibido', desc: 'Valecito IMP-2041 · Turno 1', hora: 'Hace 1 h', unread: true, color: 'bg-amber-500/15 text-amber-400', icon: null },
   { id: 4, titulo: 'Recordatorio', desc: 'Imprimir HV de Camila Torres — 3 copias', hora: '8:00 a. m.', unread: false, color: 'bg-violet-500/15 text-violet-400', icon: null },
 ]
 
@@ -64,7 +64,7 @@ const SEED_EMAILS = [
     correo: 'no-reply@stockflow.com',
     asunto: 'Tu resumen semanal de trabajos',
     texto:
-      'Esta semana digitalizaste 14 hojas de vida, imprimiste 9 documentos y registraste $ 214.500 COP en ganancias. ¡Sigue así!',
+      'Esta semana digitalizaste 14 hojas de vida e imprimiste 9 documentos. ¡Sigue así!',
     hora: 'Ayer',
     dia: '',
     unread: false,
@@ -629,34 +629,16 @@ export default function DashboardLayout({ profile }) {
             </div>
 
             <div className="border-t border-white/5 pt-4">
-              <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <FiDollarSign size={13} className="text-emerald-400" /> Mis ganancias · COP
-              </p>
-              <dl className="space-y-2.5 text-sm">
-                <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
-                  <dt className="text-slate-400">Hoy</dt>
-                  <dd className="font-black text-emerald-400">$ 86.000</dd>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
-                  <dt className="text-slate-400">Esta semana</dt>
-                  <dd className="font-black text-emerald-400">$ 214.500</dd>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
-                  <dt className="text-slate-400">Pagos pendientes</dt>
-                  <dd className="font-black text-amber-400">$ 12.500</dd>
-                </div>
-              </dl>
+              <button
+                onClick={() => {
+                  setPerfilOpen(false)
+                  navigate(`/${profile}/ajustes`)
+                }}
+                className="btn-primary w-full !py-2.5 !text-xs"
+              >
+                Editar perfil y foto
+              </button>
             </div>
-
-            <button
-              onClick={() => {
-                setPerfilOpen(false)
-                navigate(`/${profile}/ajustes`)
-              }}
-              className="btn-primary w-full !py-2.5 !text-xs"
-            >
-              Editar perfil y foto
-            </button>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   FiUser,
   FiCheckCircle,
@@ -25,7 +25,7 @@ const ACCENTS = [
 
 const IMPRESORAS = ['HP LaserJet P1102w', 'Epson L3110', 'Canon G3110', 'Brother HL-1210W']
 
-const readLS = (key, fallback) => localStorage.getItem(key) || fallback
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 
 export default function DigitAjustes() {
   const { user, updateProfile, resetPassword } = useAuth()
@@ -35,13 +35,37 @@ export default function DigitAjustes() {
   const [pass, setPass] = useState({ actual: '', nueva: '', confirmar: '' })
   const [ok, setOk] = useState('')
 
-  const [accent, setAccent] = useState(() => readLS('sf_accent', 'blue'))
-  const [dispositivo, setDispositivo] = useState(() => readLS('sf_device_name', `Celular de ${user?.name || 'Usuario'}`))
-  const [ip, setIp] = useState(() =>
-    readLS('sf_device_ip', `192.168.1.${20 + Math.floor(Math.random() * 200)}`),
-  )
-  const [impresora, setImpresora] = useState(() => readLS('sf_printer', IMPRESORAS[0]))
+  const [accent, setAccent] = useState('blue')
+  const [dispositivo, setDispositivo] = useState(`Celular de ${user?.name || 'Usuario'}`)
+  const [ip, setIp] = useState(`192.168.1.${20 + Math.floor(Math.random() * 200)}`)
+  const [impresora, setImpresora] = useState(IMPRESORAS[0])
   const [avatar] = useAvatar()
+
+  const guardarSetting = async (clave, valor) => {
+    if (!user?.id) return
+    try {
+      await fetch(`${API}/api/settings/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clave, valor }),
+      })
+    } catch {
+      /* silencioso */
+    }
+  }
+
+  useEffect(() => {
+    if (!user?.id) return
+    fetch(`${API}/api/settings/${user.id}`)
+      .then((r) => r.json())
+      .then((s) => {
+        if (s?.accent) setAccent(s.accent)
+        if (s?.dispositivo) setDispositivo(s.dispositivo)
+        if (s?.ip) setIp(s.ip)
+        if (s?.impresora) setImpresora(s.impresora)
+      })
+      .catch(() => {})
+  }, [user?.id])
 
   const mostrarOk = (msg) => {
     setOk(msg)
@@ -55,37 +79,49 @@ export default function DigitAjustes() {
     mostrarOk(res.ok ? 'Perfil actualizado correctamente.' : res.error)
   }
 
-  const cambiarContrasena = (e) => {
+  const cambiarContrasena = async (e) => {
     e.preventDefault()
     if (!pass.actual || !pass.nueva) return
     if (pass.nueva !== pass.confirmar) return mostrarOk('Las contraseñas nuevas no coinciden.')
-    const users = JSON.parse(localStorage.getItem('sf_users') || '[]')
-    const found = users.find(
-      (u) => u.email.toLowerCase() === (user?.email || '').toLowerCase() && u.password === pass.actual,
-    )
-    if (!found) return mostrarOk('La contraseña actual no es correcta.')
-    const res = resetPassword({ email: user.email, password: pass.nueva })
-    if (res.ok) {
+    try {
+      const validacion = await fetch(`${API}/api/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, password: pass.actual }),
+      })
+      const val = await validacion.json()
+      if (!val.ok) return mostrarOk('La contraseña actual no es correcta.')
+      const res = await fetch(`${API}/api/users/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, password: pass.nueva }),
+      })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || 'Error')
       setPass({ actual: '', nueva: '', confirmar: '' })
       mostrarOk('Contraseña actualizada correctamente.')
+    } catch {
+      mostrarOk('No se pudo actualizar la contraseña.')
     }
   }
 
   const elegirAccent = (id) => {
     setAccent(id)
-    localStorage.setItem('sf_accent', id)
+    guardarSetting('accent', id)
     mostrarOk('Apariencia guardada.')
   }
 
   const guardarDispositivo = () => {
-    localStorage.setItem('sf_device_name', dispositivo.trim() || 'Celular')
+    const nombre = dispositivo.trim() || 'Celular'
+    setDispositivo(nombre)
+    guardarSetting('dispositivo', nombre)
     mostrarOk('Dispositivo actualizado.')
   }
 
   const regenerarIp = () => {
     const nueva = `192.168.1.${20 + Math.floor(Math.random() * 200)}`
     setIp(nueva)
-    localStorage.setItem('sf_device_ip', nueva)
+    guardarSetting('ip', nueva)
     mostrarOk('Dirección IP regenerada.')
   }
 
@@ -397,7 +433,7 @@ export default function DigitAjustes() {
                   <FiPrinter className="shrink-0 text-blue-400" />
                   <select value={impresora} onChange={(e) => {
                     setImpresora(e.target.value)
-                    localStorage.setItem('sf_printer', e.target.value)
+                    guardarSetting('impresora', e.target.value)
                     mostrarOk('Impresora guardada.')
                   }} className="w-full bg-transparent text-sm font-semibold text-white outline-none [&>option]:bg-night-800">
                     {IMPRESORAS.map((p) => (
