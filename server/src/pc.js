@@ -17,7 +17,7 @@ async function todosLosPcs() {
     const s = pcState.get(pc.id) || pcState.get(pc.etiqueta)
     return {
       ...pc,
-      online: s ? Date.now() - s.lastSeen < 90000 : false,
+      online: s ? Date.now() - s.lastSeen < 45000 : false,
       lastSeen: s?.lastSeen || null,
     }
   })
@@ -286,7 +286,7 @@ export function pcRouter(io) {
       const found = q.rows[0]
       if (!found) return res.status(404).json({ ok: false, error: 'Código no encontrado.' })
       const s = pcState.get(found.id) || pcState.get(found.etiqueta)
-      res.json({ ok: true, pc: { ...found, online: s ? Date.now() - s.lastSeen < 90000 : false, lastSeen: s?.lastSeen || null } })
+      res.json({ ok: true, pc: { ...found, online: s ? Date.now() - s.lastSeen < 45000 : false, lastSeen: s?.lastSeen || null } })
     } catch (e) { console.error('[pc] detail:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })
 
@@ -295,7 +295,7 @@ export function pcRouter(io) {
 
 setInterval(() => {
   for (const [pc, s] of pcState) {
-    if (Date.now() - s.lastSeen > 90000 && s.online) {
+    if (Date.now() - s.lastSeen > 45000 && s.online) {
       s.online = false
       if (ioRef) ioRef.emit('pc:status', { pc, online: false })
       console.log(`[pc] ${pc} desconectada`)

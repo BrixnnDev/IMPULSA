@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { io } from 'socket.io-client'
-import { FiMonitor, FiPlus, FiTrash2, FiWifi, FiWifiOff, FiCopy, FiX, FiInfo, FiCheckCircle } from 'react-icons/fi'
+import { FiMonitor, FiPlus, FiTrash2, FiWifi, FiWifiOff, FiCopy, FiX, FiCheckCircle } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -139,9 +139,8 @@ export default function DigitAdminPcs() {
           return (
             <div key={p.id} className="group relative">
               <span className="relative mx-auto block h-2.5 w-14 rounded-t-md bg-night-700 ring-1 ring-white/10 transition group-hover:bg-blue-500/40" />
-              <span className="panel relative flex aspect-square flex-col items-center justify-center gap-2 p-3 text-center transition duration-300 group-hover:-translate-y-1 group-hover:border-blue-500/40">
-                <span role="button" tabIndex={0} title="Info" onClick={() => setCodigoModal({ ...p, _fase: p.emparejada ? 'info' : 'codigo' })} className="absolute right-8 top-2 z-10 rounded-lg p-1.5 text-slate-600 transition hover:bg-blue-600/15 hover:text-blue-300"><FiInfo size={14} /></span>
-                <span role="button" tabIndex={0} title="Eliminar" onClick={() => setEliminarId(p)} className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-slate-600 transition hover:bg-red-600/15 hover:text-red-400"><FiTrash2 size={13} /></span>
+              <span className="panel relative flex aspect-square cursor-pointer flex-col items-center justify-center gap-2 p-3 text-center transition duration-300 group-hover:-translate-y-1 group-hover:border-blue-500/40" role="button" tabIndex={0} title="Ver información" onClick={() => setCodigoModal({ ...p, _fase: p.emparejada ? 'info' : 'codigo' })}>
+                <span role="button" tabIndex={0} title="Eliminar" onClick={(e) => { e.stopPropagation(); setEliminarId(p) }} className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-slate-600 transition hover:bg-red-600/15 hover:text-red-400"><FiTrash2 size={13} /></span>
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 transition group-hover:scale-110"><FiMonitor size={22} /></span>
                 <span className="block w-full truncate px-0.5 text-xs font-bold text-white sm:text-sm">{p.responsable}</span>
                 <span className="text-[11px] text-slate-500">{p.etiqueta}</span>
@@ -263,18 +262,31 @@ export default function DigitAdminPcs() {
 
               {/* FASE: Info de PC ya vinculada */}
               {fase === 'info' && (
-                <div className="space-y-3 rounded-xl border border-white/5 bg-black/30 p-4">
-                  <p className="text-xs font-semibold text-slate-300">Información de la PC:</p>
-                  {codigoModal.ip && <div className="flex justify-between text-xs"><span className="text-slate-500">IP</span><span className="font-mono font-bold text-slate-200">{codigoModal.ip}</span></div>}
-                  {codigoModal.mac && <div className="flex justify-between text-xs"><span className="text-slate-500">MAC</span><span className="font-mono font-bold text-slate-200">{codigoModal.mac}</span></div>}
-                  {codigoModal.sistema && <div className="flex justify-between text-xs"><span className="text-slate-500">Sistema</span><span className="font-bold text-slate-200">{codigoModal.sistema}</span></div>}
-                  {!codigoModal.ip && !codigoModal.mac && <p className="text-center text-xs text-slate-500">Esperando datos del agente...</p>}
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center">
+                    <p className="text-xs font-semibold text-slate-300">Código de emparejamiento:</p>
+                    <div className="mt-2 flex items-center justify-center gap-3">
+                      <span className="rounded-xl bg-black/40 px-5 py-3 font-mono text-2xl font-black tracking-widest text-emerald-400 ring-1 ring-emerald-500/30 select-all">{codigoModal.codigo}</span>
+                      <button onClick={() => copiar(codigoModal.codigo, 'info-codigo')} className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={18} /></button>
+                    </div>
+                    {copiado === 'info-codigo' && <p className="mt-1 text-xs text-emerald-400">Copiado al portapapeles</p>}
+                  </div>
+                  <div className="space-y-3 rounded-xl border border-white/5 bg-black/30 p-4">
+                    <p className="text-xs font-semibold text-slate-300">Información de la PC:</p>
+                    {codigoModal.ip && <div className="flex justify-between text-xs"><span className="text-slate-500">IP</span><span className="font-mono font-bold text-slate-200">{codigoModal.ip}</span></div>}
+                    {codigoModal.mac && <div className="flex justify-between text-xs"><span className="text-slate-500">MAC</span><span className="font-mono font-bold text-slate-200">{codigoModal.mac}</span></div>}
+                    {codigoModal.sistema && <div className="flex justify-between text-xs"><span className="text-slate-500">Sistema</span><span className="font-bold text-slate-200">{codigoModal.sistema}</span></div>}
+                    {!codigoModal.ip && !codigoModal.mac && <p className="text-center text-xs text-slate-500">Esperando datos del agente...</p>}
+                  </div>
                 </div>
               )}
             </div>
 
             {fase === 'conectada' && (
               <button onClick={() => setCodigoModal(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
+            )}
+            {fase === 'info' && (
+              <button onClick={() => setCodigoModal(null)} className="btn-ghost w-full !py-2.5 !text-xs">Cerrar</button>
             )}
           </div>
         </div>

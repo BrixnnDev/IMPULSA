@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 
-export default function SplashScreen({ onComplete }) {
+export default function SplashScreen({ onComplete, autoState = 'idle' }) {
   const [phase, setPhase] = useState(0)
   const [progress, setProgress] = useState(0)
   const [serverUrl, setServerUrl] = useState('http://localhost:8787')
@@ -179,7 +179,9 @@ export default function SplashScreen({ onComplete }) {
             <div className="splash-progress-bar">
               <div className="splash-progress-fill" style={{ width: `${progress}%` }} />
             </div>
-            <span className="splash-progress-text">{Math.round(progress)}%</span>
+            <span className="splash-progress-text">
+              {autoState === 'checking' ? 'Buscando perfil...' : autoState === 'done' ? 'Perfil encontrado' : `${Math.round(progress)}%`}
+            </span>
           </div>
         </div>
       )}

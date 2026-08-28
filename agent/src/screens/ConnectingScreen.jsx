@@ -76,6 +76,14 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
         await new Promise(r => setTimeout(r, 800))
         if (!mountedRef.current) return
 
+        try {
+          await invoke('save_state', {
+            serverUrl,
+            pairingCode,
+            pcName: sysInfo.computer_name,
+          })
+        } catch {}
+
         onPaired({
           pcName: sysInfo.computer_name,
           ip: sysInfo.local_ip,

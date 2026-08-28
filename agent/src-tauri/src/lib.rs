@@ -48,12 +48,15 @@ fn get_local_ip_raw() -> String {
 
 fn get_mac_address_raw() -> String {
     use std::process::Command;
-    let output = Command::new("getmac")
-        .args(["/fo", "csv", "/nh"])
-        .output();
-
-    match output {
-        Ok(out) => {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let output = Command::new("getmac")
+            .args(["/fo", "csv", "/nh"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        if let Ok(out) = output {
             let stdout = String::from_utf8_lossy(&out.stdout);
             for line in stdout.lines() {
                 let parts: Vec<&str> = line.split(',').collect();
@@ -67,10 +70,10 @@ fn get_mac_address_raw() -> String {
                     }
                 }
             }
-            "Not Found".to_string()
+            return "Not Found".to_string();
         }
-        Err(_) => "Not Found".to_string(),
     }
+    "Not Found".to_string()
 }
 
 fn get_computer_name() -> String {
