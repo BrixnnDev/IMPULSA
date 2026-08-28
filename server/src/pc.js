@@ -110,18 +110,23 @@ export function pcRouter(io) {
   // Heartbeat: el script manda info cada 30 seg
   r.post('/heartbeat', async (req, res) => {
     try {
-      const { pc, ip, mac, sistema, ubicacion, codigo } = req.body
-      const nombre = pc
-      if (!nombre) return res.status(400).json({ ok: false })
-      let cond = 'etiqueta = $1'
-      let val = nombre
-      if (codigo) { cond = 'codigo = $1'; val = cleanCode(codigo) }
-      const q = await pool.query(`SELECT * FROM pcs WHERE ${cond} OR id = $2 OR etiqueta = $2 LIMIT 1`, [val, nombre])
-      const found = q.rows[0]
+      const { pc, pc_name, ip, mac, sistema, ubicacion, codigo, pairing_code } = req.body
+      const nombre = pc || pc_name
+      const c = cleanCode(codigo || pairing_code || '')
+      if (!nombre && !c) return res.status(400).json({ ok: false })
+      let found = null
+      if (c) {
+        const q = await pool.query('SELECT * FROM pcs WHERE codigo = $1 LIMIT 1', [c])
+        found = q.rows[0] || null
+      }
+      if (!found && nombre) {
+        const q = await pool.query('SELECT * FROM pcs WHERE etiqueta = $1 OR id = $1 LIMIT 1', [nombre])
+        found = q.rows[0] || null
+      }
       if (found) {
         await pool.query(
-          `UPDATE pcs SET ip = $1, mac = $2, sistema = $3, ubicacion = $4, emparejada = TRUE WHERE id = $5`,
-          [ip || found.ip, mac || found.mac, sistema || found.sistema, ubicacion || found.ubicacion, found.id],
+          `UPDATE pcs SET etiqueta = $1, ip = $2, mac = $3, sistema = $4, ubicacion = $5, emparejada = TRUE WHERE id = $6`,
+          [nombre || found.etiqueta, ip || found.ip, mac || found.mac, sistema || found.sistema, ubicacion || found.ubicacion, found.id],
         )
       }
       const key = found ? found.id : nombre
