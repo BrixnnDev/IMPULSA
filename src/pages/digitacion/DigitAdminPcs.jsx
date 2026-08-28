@@ -38,7 +38,7 @@ export default function DigitAdminPcs() {
         if (Array.isArray(d)) {
           setPcs(d)
           setCodigoModal((prev) => {
-            if (prev && prev.id === id) {
+            if (prev && prev.id === id && prev._fase !== 'conectada') {
               const updated = d.find((p) => p.id === id) || prev
               return { ...updated, _fase: 'conectando' }
             }
