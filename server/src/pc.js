@@ -307,3 +307,39 @@ setInterval(() => {
     }
   }
 }, 30000)
+
+const socketPc = new Map()
+
+export function bindPcSocket(pcName, socketId) {
+  if (pcName) socketPc.set(socketId, pcName)
+}
+
+export function unbindPcSocket(socketId) {
+  const pcName = socketPc.get(socketId)
+  socketPc.delete(socketId)
+  return pcName
+}
+
+export async function markPcOffline(pcName) {
+  let found = null
+  if (pcName) {
+    const q = await pool.query('SELECT id, etiqueta FROM pcs WHERE etiqueta = $1 OR id = $1 LIMIT 1', [pcName]).catch(() => null)
+    found = q?.rows?.[0]
+  }
+  const keys = new Set()
+  if (found) {
+    keys.add(found.id)
+    keys.add(found.etiqueta)
+  }
+  if (pcName) keys.add(pcName)
+  for (const k of keys) {
+    const s = pcState.get(k)
+    if (s) {
+      s.online = false
+      s.lastSeen = 0
+    }
+  }
+  const target = found?.etiqueta || pcName
+  if (target && ioRef) ioRef.emit('pc:status', { pc: target, online: false })
+  if (target) console.log(`[pc] ${target} desconectada (socket)`)
+}

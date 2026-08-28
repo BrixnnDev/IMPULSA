@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 
-export default function SplashScreen({ onComplete, autoState = 'idle' }) {
+export default function SplashScreen({ onComplete, onAutoPaired }) {
   const [phase, setPhase] = useState(0)
   const [progress, setProgress] = useState(0)
   const [serverUrl, setServerUrl] = useState('http://localhost:8787')
   const [codeDigits, setCodeDigits] = useState(Array(6).fill(''))
   const [pairState, setPairState] = useState('idle')
+  const [savedSession, setSavedSession] = useState(null)
   const inputRefs = useRef([])
 
   useEffect(() => {
@@ -27,6 +29,22 @@ export default function SplashScreen({ onComplete, autoState = 'idle' }) {
     timers.push(setTimeout(() => setPhase(5), 3800))
 
     return () => timers.forEach(t => { clearInterval(t); clearTimeout(t) })
+  }, [])
+
+  const savedRef = useRef(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const saved = await invoke('load_state')
+        if (saved && !cancelled) {
+          savedRef.current = saved
+          setSavedSession(saved)
+        }
+      } catch {}
+    })()
+    return () => { cancelled = true }
   }, [])
 
   const handleDigitChange = useCallback((index, value) => {
@@ -67,6 +85,66 @@ export default function SplashScreen({ onComplete, autoState = 'idle' }) {
     setTimeout(() => setPairState('form'), 1500)
   }
   const handleSubmit = () => onComplete(serverUrl, code)
+
+  const autoPairedRef = useRef(false)
+
+  useEffect(() => {
+    if (phase < 4) return
+    if (autoPairedRef.current) return
+    const saved = savedRef.current
+    if (!saved) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const srv = saved.server_url || 'http://localhost:8787'
+        setServerUrl(srv)
+        const resp = await fetch(`${srv}/api/pc/detail?code=${encodeURIComponent(saved.pairing_code)}`)
+        if (!resp.ok) {
+          await invoke('clear_state').catch(() => {})
+          if (!cancelled) setPairState('idle')
+          return
+        }
+        const data = await resp.json()
+        if (cancelled || !data?.pc) return
+
+        let sysInfo = null
+        try {
+          sysInfo = await invoke('get_system_info')
+        } catch {}
+        const pcName = saved.pc_name || data.pc.etiqueta || 'PC'
+        try {
+          await fetch(`${srv}/api/pc/report-system`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code: saved.pairing_code,
+              pc_name: pcName,
+              ip: sysInfo?.local_ip,
+              mac: sysInfo?.mac_address,
+              sistema: sysInfo?.os_version,
+            }),
+          })
+        } catch {}
+
+        autoPairedRef.current = true
+        onAutoPaired({
+          pcName,
+          ip: data.pc?.ip || sysInfo?.local_ip,
+          mac: data.pc?.mac || sysInfo?.mac_address,
+          so: data.pc?.sistema || sysInfo?.os_version,
+          pairingCode: saved.pairing_code,
+          serverUrl: srv,
+          status: 'Conectada',
+          userInfo: data.pc?.responsable ? { name: data.pc.responsable, email: data.pc.email, role: data.pc.rol } : null,
+        })
+      } catch {
+        if (!cancelled) setPairState('idle')
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [phase, onAutoPaired])
 
   return (
     <div className="screen splash-root">
@@ -180,7 +258,7 @@ export default function SplashScreen({ onComplete, autoState = 'idle' }) {
               <div className="splash-progress-fill" style={{ width: `${progress}%` }} />
             </div>
             <span className="splash-progress-text">
-              {autoState === 'checking' ? 'Buscando perfil...' : autoState === 'done' ? 'Perfil encontrado' : `${Math.round(progress)}%`}
+              {savedSession ? 'Buscando perfil...' : `${Math.round(progress)}%`}
             </span>
           </div>
         </div>

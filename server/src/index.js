@@ -6,7 +6,7 @@ import { Server } from 'socket.io'
 import { verifyWebhook, parseIncoming, sendWhatsApp } from './whatsapp.js'
 import { authUrl, saveCode, isReady, listRecent, sendMail } from './gmail.js'
 import { scansRouter } from './scans.js'
-import { pcRouter } from './pc.js'
+import { pcRouter, bindPcSocket, unbindPcSocket, markPcOffline } from './pc.js'
 import { usersRouter } from './users.js'
 import { initDb } from './db.js'
 
@@ -30,7 +30,14 @@ const io = new Server(server, { cors: { origin: '*' } })
 
 io.on('connection', (socket) => {
   console.log('[ws] cliente conectado:', socket.id)
-})
+  socket.on('pc:register', (d) => {
+    const nombre = (d && (d.pcName || d.pc_name)) || ''
+    bindPcSocket(nombre, socket.id)
+  })
+  socket.on('disconnect', () => {
+    const pcName = unbindPcSocket(socket.id)
+    if (pcName) markPcOffline(pcName)
+  })})
 
 /* ============ WHATSAPP CLOUD API (oficial Meta) ============ */
 
