@@ -8,7 +8,7 @@ let ioRef = null
 const cleanCode = (c) => c.replace(/-/g, '').toUpperCase()
 
 function generarCodigo() {
-  return randomUUID().slice(0, 8).toUpperCase()
+  return randomUUID().slice(0, 6).toUpperCase()
 }
 
 async function todosLosPcs() {
@@ -128,9 +128,11 @@ export function pcRouter(io) {
       const ipDetectada = req.ip || req.connection?.remoteAddress || ''
       const wasOnline = pcState.get(key)?.online || false
       pcState.set(key, { lastSeen: Date.now(), ip: ipDetectada, online: true })
+      if (found) pcState.set(found.etiqueta, { lastSeen: Date.now(), ip: ipDetectada, online: true })
+      const statusName = found ? found.etiqueta : nombre
       if (!wasOnline) {
-        io.emit('pc:status', { pc: nombre, online: true })
-        console.log(`[pc] ${nombre} conectada`)
+        io.emit('pc:status', { pc: statusName, online: true })
+        console.log(`[pc] ${statusName} conectada`)
       }
       res.json({ ok: true })
     } catch (e) {
@@ -247,8 +249,13 @@ export function pcRouter(io) {
       const found = q.rows[0]
       if (!found) return res.status(404).json({ ok: false, error: 'Código no válido.' })
       await pool.query(`UPDATE pcs SET etiqueta = $1, ip = $2, mac = $3, sistema = $4, emparejada = TRUE, fecha_emparejada = $5 WHERE id = $6`, [pc_name || found.etiqueta, ip || found.ip, mac || found.mac, sistema || found.sistema, new Date().toISOString(), found.id])
-      io.emit('pc:paired', { id: found.id, etiqueta: found.etiqueta })
+      const etiqueta = pc_name || found.etiqueta
+      io.emit('pc:paired', { id: found.id, etiqueta })
+      io.emit('pc:status', { pc: etiqueta, online: true })
       io.emit('pc:system-report', { id: found.id, ip, mac, sistema })
+      pcState.set(found.id, { lastSeen: Date.now(), online: true })
+      pcState.set(etiqueta, { lastSeen: Date.now(), online: true })
+      console.log(`[pc] ${etiqueta} conectada (report-system)`)
       res.json({ ok: true, user: { name: found.responsable || found.etiqueta || 'Sin nombre', email: found.email || '', avatar_url: found.avatar_url || '', role: found.rol || 'digitador' } })
     } catch (e) { console.error('[pc] report-system:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })

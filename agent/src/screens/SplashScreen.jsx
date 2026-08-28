@@ -4,7 +4,7 @@ export default function SplashScreen({ onComplete }) {
   const [phase, setPhase] = useState(0)
   const [progress, setProgress] = useState(0)
   const [serverUrl, setServerUrl] = useState('http://localhost:8787')
-  const [codeDigits, setCodeDigits] = useState(Array(8).fill(''))
+  const [codeDigits, setCodeDigits] = useState(Array(6).fill(''))
   const [pairState, setPairState] = useState('idle')
   const inputRefs = useRef([])
 
@@ -37,7 +37,7 @@ export default function SplashScreen({ onComplete }) {
     next[index] = value.toUpperCase()
     setCodeDigits(next)
 
-    if (value && index < 7) {
+    if (value && index < 5) {
       inputRefs.current[index + 1]?.focus()
     }
   }, [codeDigits])
@@ -53,11 +53,11 @@ export default function SplashScreen({ onComplete }) {
 
   const handleDigitPaste = useCallback((e) => {
     e.preventDefault()
-    const text = (e.clipboardData.getData('text') || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8)
-    const next = Array(8).fill('')
+    const text = (e.clipboardData.getData('text') || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6)
+    const next = Array(6).fill('')
     for (let i = 0; i < text.length; i++) next[i] = text[i]
     setCodeDigits(next)
-    const focusIdx = Math.min(text.length, 7)
+    const focusIdx = Math.min(text.length, 5)
     inputRefs.current[focusIdx]?.focus()
   }, [])
 
@@ -133,7 +133,7 @@ export default function SplashScreen({ onComplete }) {
                       ))}
                     </div>
                   </div>
-                  <button className="splash-pair-btn" onClick={handleSubmit} disabled={code.length < 8}>
+                  <button className="splash-pair-btn" onClick={handleSubmit} disabled={code.length < 6}>
                     Conectar
                   </button>
                   <button className="splash-back-btn" onClick={() => setPairState('idle')}>
