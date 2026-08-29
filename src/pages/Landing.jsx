@@ -821,14 +821,8 @@ export default function Landing() {
 
       {/* Footer */}
       <footer id="contacto" className="border-t border-white/5 bg-night-900">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-10 text-sm text-slate-500 sm:flex-row sm:justify-between sm:px-6">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-              <RocketLogo size={18} />
-            </span>
-            <span>© 2026 IMPULSA · Gestión de Inventario & POS</span>
-          </div>
-          <div className="flex items-center gap-5">
+        <div className="flex flex-col items-center gap-4 px-4 py-10 text-sm text-slate-500 sm:px-6">
+          <div className="flex items-center justify-center gap-5">
             <Link to="/login" className="flex items-center gap-1.5 transition hover:text-blue-400">
               <FiLock size={14} /> Acceder
             </Link>
@@ -836,16 +830,20 @@ export default function Landing() {
               <FiShoppingCart size={14} /> Crear cuenta
             </Link>
           </div>
-        </div>
-        <div className="flex justify-center pb-8">
-          <a
-            href="https://brixnndev.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-blue-400"
-          >
-            <RocketLogo size={14} /> Creado por BRIXNNDEV
-          </a>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
+            <span className="flex items-center gap-1.5">
+              <RocketLogo size={16} /> © 2026 IMPULSA · Gestión de Inventario & POS
+            </span>
+            <span className="text-slate-600">·</span>
+            <a
+              href="https://brixnndev.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-blue-400"
+            >
+              <RocketLogo size={14} /> Creado por BRAXN
+            </a>
+          </div>
         </div>
       </footer>
     </div>
