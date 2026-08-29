@@ -822,14 +822,6 @@ export default function Landing() {
       {/* Footer */}
       <footer id="contacto" className="border-t border-white/5 bg-night-900">
         <div className="flex flex-col items-center gap-4 px-4 py-10 text-sm text-slate-500 sm:px-6">
-          <div className="flex items-center justify-center gap-5">
-            <Link to="/login" className="flex items-center gap-1.5 transition hover:text-blue-400">
-              <FiLock size={14} /> Acceder
-            </Link>
-            <Link to="/registro" className="flex items-center gap-1.5 transition hover:text-blue-400">
-              <FiShoppingCart size={14} /> Crear cuenta
-            </Link>
-          </div>
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
             <span className="flex items-center gap-1.5">
               <RocketLogo size={16} /> © 2026 IMPULSA · Gestión de Inventario & POS
