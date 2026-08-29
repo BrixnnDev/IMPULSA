@@ -147,9 +147,9 @@ export default function Landing() {
             <a href="#como-funciona" className="flex items-center gap-1.5 transition hover:text-blue-400">
               <FiLayers size={15} /> Cómo funciona
             </a>
-            <a href="#contacto" className="flex items-center gap-1.5 transition hover:text-blue-400">
+            <Link to="/contacto" className="flex items-center gap-1.5 transition hover:text-blue-400">
               <FiMail size={15} /> Contacto
-            </a>
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-2 lg:ml-6">
             <Link to="/login" className="btn-ghost !px-4 !py-2">
@@ -225,9 +225,9 @@ export default function Landing() {
               <Link to="/registro" className="glow-blue btn-primary px-8 py-3.5">
                 Prueba ya <FiArrowRight />
               </Link>
-              <a href="#contacto" className="btn-ghost px-8 py-3.5">
+              <Link to="/contacto" className="btn-ghost px-8 py-3.5">
                 Contáctanos
-              </a>
+              </Link>
             </div>
 
             {/* Rating */}

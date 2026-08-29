@@ -9,6 +9,7 @@ import AuthPage from './pages/AuthPage'
 import ForgotPassword from './pages/ForgotPassword'
 import SelectProfile from './pages/SelectProfile'
 import VerifyPage from './pages/VerifyPage'
+import Contacto from './pages/Contacto'
 
 import PosInicio from './pages/pos/PosInicio'
 import PosInventario from './pages/pos/PosInventario'
@@ -36,6 +37,8 @@ export default function App() {
         <Route path="/registro" element={<GuestRoute><AuthPage initialMode="register" /></GuestRoute>} />
         <Route path="/olvide-contrasena" element={<ForgotPassword />} />
         <Route path="/verificar" element={<VerifyPage />} />
+
+        <Route path="/contacto" element={<Contacto />} />
 
         <Route
           path="/seleccionar-perfil"
