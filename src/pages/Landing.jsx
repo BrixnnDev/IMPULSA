@@ -841,7 +841,7 @@ export default function Landing() {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-blue-400"
             >
-              <RocketLogo size={14} /> Creado por BRAXN
+              <RocketLogo size={14} /> Creado por BRIXNNDEV
             </a>
           </div>
         </div>
