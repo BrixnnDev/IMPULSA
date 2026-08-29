@@ -103,7 +103,7 @@ export default function WelcomeScreen({ onPair }) {
           marginBottom: 8,
           animation: 'fadeInUp 0.8s ease 0.2s both',
         }}>
-          StockFlow
+          IMPULSA
         </h1>
 
         <p style={{

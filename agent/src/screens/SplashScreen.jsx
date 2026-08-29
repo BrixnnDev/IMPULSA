@@ -161,7 +161,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
           <div className="splash-pair-right-inner">
             <div className="splash-pair-header">
               <div className="splash-pair-logo">SF</div>
-              <h3 className="splash-pair-title">StockFlow</h3>
+              <h3 className="splash-pair-title">IMPULSA</h3>
               <p className="splash-pair-desc">Agente de Monitoreo</p>
             </div>
 
@@ -244,7 +244,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
           <div className="splash-loading-top">
             <div className="splash-pair-logo" style={{ opacity: phase >= 2 ? 1 : 0 }}>SF</div>
             <div style={{ opacity: phase >= 2 ? 1 : 0, transition: 'opacity 0.6s ease' }}>
-              <h1 className="splash-loading-title">StockFlow</h1>
+              <h1 className="splash-loading-title">IMPULSA</h1>
               <p className="splash-loading-sub">Agente de Monitoreo</p>
             </div>
           </div>
@@ -306,7 +306,7 @@ function DeviceMockup() {
               borderRadius: 6, background: 'rgba(30,41,59,1)',
               display: 'flex', alignItems: 'center',
               padding: '0 10px', fontSize: 10, color: '#64748B',
-            }}>stockflow.app/pos</span>
+            }}>impulsa.app/pos</span>
           </div>
 
           <div style={{ display: 'flex' }}>

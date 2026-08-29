@@ -15,7 +15,7 @@ const STORES = [
     hoverBorder: 'hover:border-emerald-500/50',
     bgColor: 'bg-emerald-500/10',
     textColor: 'text-emerald-400',
-    url: 'https://play.google.com/store/apps/details?id=com.stockflow.app',
+    url: 'https://play.google.com/store/apps/details?id=com.impulsa.app',
     alt: 'Descargar en Google Play',
   },
   {
@@ -29,7 +29,7 @@ const STORES = [
     hoverBorder: 'hover:border-slate-500/50',
     bgColor: 'bg-slate-700/10',
     textColor: 'text-slate-300',
-    url: 'https://apps.apple.com/app/stockflow/id1234567890',
+    url: 'https://apps.apple.com/app/impulsa/id1234567890',
     alt: 'Descargar en App Store',
   },
 ]
@@ -161,7 +161,7 @@ export default function DownloadSection() {
 
             <div className="space-y-4 p-6">
               <a
-                href="/StockFlow.exe"
+                href="/IMPULSA.exe"
                 download
                 className="group flex items-start gap-4 rounded-xl border border-white/10 bg-night-800 p-5 transition hover:border-blue-500/40 hover:bg-blue-500/5"
               >
@@ -179,7 +179,7 @@ export default function DownloadSection() {
               </a>
 
               <a
-                href="/agent/StockFlow-Agent.exe"
+                href="/agent/IMPULSA-Agent.exe"
                 download
                 className="group flex items-start gap-4 rounded-xl border border-white/10 bg-night-800 p-5 transition hover:border-emerald-500/40 hover:bg-emerald-500/5"
               >

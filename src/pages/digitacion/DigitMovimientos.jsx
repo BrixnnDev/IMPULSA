@@ -75,7 +75,7 @@ export default function DigitMovimientos() {
   const irACarpeta = (etiqueta) => { const p = pcs.find((x) => x.etiqueta === etiqueta); if (p) abrirCarpeta(p, true) }
 
   const descargarImpresion = (r) => {
-    const txt = ['STOCKFLOW — Registro de impresión', `Código: ${r.id}`, `Documento: ${r.documento}`, `Carpeta: ${r.responsable} (${r.pc})`, `Copias: ${r.copias} · Páginas: ${r.paginas}`, `Hora: ${r.hora}`, `Estado: ${r.estado}`].join('\n')
+    const txt = ['IMPULSA — Registro de impresión', `Código: ${r.id}`, `Documento: ${r.documento}`, `Carpeta: ${r.responsable} (${r.pc})`, `Copias: ${r.copias} · Páginas: ${r.paginas}`, `Hora: ${r.hora}`, `Estado: ${r.estado}`].join('\n')
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' })); a.download = `${r.id}.txt`; a.click()
   }
 
@@ -187,7 +187,7 @@ export default function DigitMovimientos() {
             <div className="overflow-y-auto bg-slate-300/10 p-4 sm:p-8">
               <div className="mx-auto w-full max-w-[620px] rounded-md bg-white p-7 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] sm:p-10">
                 <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
-                  <div><p className="font-serif text-xl font-black tracking-tight text-slate-900">STOCKFLOW</p><p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Documento impreso</p></div>
+                  <div><p className="font-serif text-xl font-black tracking-tight text-slate-900">IMPULSA</p><p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Documento impreso</p></div>
                   <div className="flex gap-[2px]">{[38, 24, 30, 18, 26, 34].map((h, i) => <span key={i} className="w-[3px] bg-slate-900" style={{ height: `${h}px` }} />)}</div>
                 </div>
                 <h3 className="mt-6 font-serif text-2xl font-bold text-slate-900">{verPdf.documento}</h3>

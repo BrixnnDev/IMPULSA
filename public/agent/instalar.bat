@@ -1,10 +1,10 @@
 @echo off
-title Instalar Agent StockFlow
+title Instalar Agent IMPULSA
 color 0B
 cls
 
 echo ============================================
-echo   Instalador Agent StockFlow
+echo   Instalador Agent IMPULSA
 echo ============================================
 echo.
 echo   Este agente conecta tu PC con el sistema.
@@ -33,7 +33,7 @@ echo   Codigo: %PAIR_CODE%
 echo.
 
 REM === Crear carpeta destino ===
-set "DEST=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\StockFlow-Agent"
+set "DEST=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\IMPULSA-Agent"
 
 if exist "%DEST%" (
     taskkill /f /im wscript.exe >nul 2>&1
@@ -52,7 +52,7 @@ echo WshShell.Run Chr(34) ^& CreateObject("Scripting.FileSystemObject").GetParen
 REM === Crear heartbeat.bat con delayed expansion ===
 echo @echo off > "%DEST%\heartbeat.bat"
 echo setlocal EnableDelayedExpansion >> "%DEST%\heartbeat.bat"
-echo title Agent StockFlow >> "%DEST%\heartbeat.bat"
+echo title Agent IMPULSA >> "%DEST%\heartbeat.bat"
 echo color 0A >> "%DEST%\heartbeat.bat"
 echo. >> "%DEST%\heartbeat.bat"
 echo set "SERVER_URL=%SERVER_URL%" >> "%DEST%\heartbeat.bat"

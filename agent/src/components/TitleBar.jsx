@@ -15,8 +15,8 @@ export default function TitleBar() {
   return (
     <div className="titlebar" data-tauri-drag-region>
       <div className="titlebar-left" data-tauri-drag-region>
-        <div className="titlebar-logo">SF</div>
-        <span className="titlebar-text" data-tauri-drag-region>StockFlow</span>
+        <div className="titlebar-logo">IM</div>
+        <span className="titlebar-text" data-tauri-drag-region>IMPULSA</span>
       </div>
       <div className="titlebar-right">
         <button className="titlebar-btn titlebar-minimize" onClick={handleMinimize} title="Minimizar a bandeja">

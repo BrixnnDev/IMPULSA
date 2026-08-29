@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "StockFlow",
+  "productName": "IMPULSA-Agent",
   "version": "0.1.0",
-  "identifier": "com.stockflow.agent",
+  "identifier": "com.impulsa.agent",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5174",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "StockFlow",
+        "title": "IMPULSA",
         "width": 1280,
         "height": 800,
         "minWidth": 900,

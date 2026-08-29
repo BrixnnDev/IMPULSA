@@ -126,7 +126,7 @@ export default function DigitHistorial() {
             </span>
             <div className="min-w-0">
               <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
-              <p className="truncate text-[11px] text-slate-500">{user?.email || 'cuenta@stockflow.com'}</p>
+              <p className="truncate text-[11px] text-slate-500">{user?.email || 'cuenta@impulsa.app'}</p>
               <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
                 <FiUser size={10} /> Digitación
               </span>
@@ -276,7 +276,7 @@ export default function DigitHistorial() {
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{user?.name || 'Usuario'}</p>
-                  <p className="truncate text-[11px] text-slate-500">{user?.email || 'cuenta@stockflow.com'}</p>
+                  <p className="truncate text-[11px] text-slate-500">{user?.email || 'cuenta@impulsa.app'}</p>
                 </div>
                 <span className="ml-auto shrink-0 rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
                   Digitación

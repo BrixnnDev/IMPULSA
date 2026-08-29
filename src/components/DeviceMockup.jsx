@@ -14,7 +14,7 @@ export default function DeviceMockup() {
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/70" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
             <span className="ml-3 hidden h-5 flex-1 items-center rounded-md bg-night-700 px-3 text-[10px] text-slate-500 sm:flex">
-              stockflow.app/pos
+              impulsa.app/pos
             </span>
           </div>
           {/* Pantalla dashboard */}

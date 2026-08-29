@@ -1,10 +1,10 @@
 @echo off
-title Agent StockFlow
+title Agent IMPULSA
 color 0A
 cls
 
 echo ============================================
-echo   Agent StockFlow
+echo   Agent IMPULSA
 echo ============================================
 echo.
 echo   Ingresa el codigo de emparejamiento

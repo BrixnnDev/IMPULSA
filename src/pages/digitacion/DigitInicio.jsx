@@ -88,7 +88,7 @@ export default function DigitInicio() {
         </span>
         <div className="min-w-0">
           <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
-          <p className="truncate text-xs text-slate-500">{user?.email || 'cuenta@stockflow.com'}</p>
+          <p className="truncate text-xs text-slate-500">{user?.email || 'cuenta@impulsa.app'}</p>
         </div>
       </div>
 
