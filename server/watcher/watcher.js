@@ -29,7 +29,7 @@ try {
   console.log('╚══════════════════════════════════════════════╝\n')
   console.log(`Archivo: ${CONFIG_PATH}\n`)
   console.log('  "carpeta"  → ruta de la carpeta que el escáner usa')
-  console.log('  "servidor" → dirección del servidor StockFlow')
+  console.log('  "servidor" → dirección del servidor IMPULSA')
   console.log('  "persona"  → nombre que aparece como quien escanea\n')
   process.exit(0)
 }
@@ -132,7 +132,7 @@ function vigilar() {
 
 // ─── Arrancar ───
 console.log('╔══════════════════════════════════════════╗')
-console.log('║    Escáner StockFlow · Vigilante v1.0    ║')
+console.log('║    Escáner IMPULSA · Vigilante v1.0    ║')
 console.log('╚══════════════════════════════════════════╝')
 console.log(`\nCarpeta: ${CFG.carpeta}`)
 console.log(`Servidor: ${CFG.servidor}`)

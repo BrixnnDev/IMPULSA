@@ -1,4 +1,4 @@
-# StockFlow Server (WhatsApp oficial + Gmail)
+# IMPULSA Server (WhatsApp oficial + Gmail)
 
 Servidor local que conecta tu página con **WhatsApp Cloud API (Meta)** y **Gmail API**, y empuja todo en tiempo real al frontend con WebSocket.
 
@@ -25,7 +25,7 @@ El servidor queda en `http://localhost:8787`.
 5. Suscríbete al campo **messages**.
 
 Listo: cada mensaje que llegue a tu número aparecerá al instante en el panel
-de WhatsApp de StockFlow, y los mensajes que escribas ahí se envían de verdad.
+de WhatsApp de IMPULSA, y los mensajes que escribas ahí se envían de verdad.
 
 ## Gmail
 

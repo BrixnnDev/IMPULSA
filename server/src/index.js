@@ -17,7 +17,7 @@ const cfg = {
   port: process.env.PORT || 8787,
   waToken: process.env.WHATSAPP_TOKEN || '',
   waPhoneId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-  waVerify: process.env.WHATSAPP_VERIFY_TOKEN || 'stockflow-verify-123',
+  waVerify: process.env.WHATSAPP_VERIFY_TOKEN || 'impulsa-verify-123',
   clientId: process.env.GOOGLE_CLIENT_ID || '',
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   redirectUri:
@@ -132,7 +132,7 @@ setInterval(pollGmail, 15000)
 
 initDb().then(() => {
   server.listen(cfg.port, () => {
-    console.log(`StockFlow server en http://localhost:${cfg.port}`)
+    console.log(`IMPULSA server en http://localhost:${cfg.port}`)
     console.log('WhatsApp webhook: POST /api/whatsapp/webhook')
     if (!isReady()) console.log(`Conecta Gmail abriendo: http://localhost:${cfg.port}/api/gmail/auth`)
   })

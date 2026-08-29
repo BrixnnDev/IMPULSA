@@ -6,7 +6,7 @@ const { Pool } = pg
 const pool = new Pool({
   host: process.env.PG_HOST || 'localhost',
   port: Number(process.env.PG_PORT) || 5432,
-  database: process.env.PG_DATABASE || 'stockflow',
+  database: process.env.PG_DATABASE || 'impulsa',
   user: process.env.PG_USER || 'postgres',
   password: process.env.PG_PASSWORD || '',
   max: 10,
@@ -106,8 +106,8 @@ export async function initDb() {
     // Seed del admin maestro
     await client.query(
       `INSERT INTO users (id, name, email, password, rol, verificado, creado, verificado_en)
-       VALUES ('u-admin', 'Administrador', 'admin@stockflow.com', 'admin123', 'admin', TRUE, $1, $1)
-       ON CONFLICT (email) DO NOTHING`,
+       VALUES ('u-admin', 'Administrador', 'admin@impulsa.app', 'admin123', 'admin', TRUE, $1, $1)
+       ON CONFLICT (id) DO NOTHING`,
       [new Date().toISOString()],
     )
 

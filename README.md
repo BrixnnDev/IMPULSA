@@ -1,4 +1,4 @@
-# IMPULSA — StockFlow
+# IMPULSA — IMPULSA
 
 Sistema de gestión de inventario, punto de venta (POS) y digitación de productos.
 
