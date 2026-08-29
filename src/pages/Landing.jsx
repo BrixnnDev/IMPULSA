@@ -823,8 +823,8 @@ export default function Landing() {
       <footer id="contacto" className="border-t border-white/5 bg-night-900">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-10 text-sm text-slate-500 sm:flex-row sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white">
-              S
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <RocketLogo size={18} />
             </span>
             <span>© 2026 IMPULSA · Gestión de Inventario & POS</span>
           </div>
@@ -836,6 +836,16 @@ export default function Landing() {
               <FiShoppingCart size={14} /> Crear cuenta
             </Link>
           </div>
+        </div>
+        <div className="flex justify-center pb-8">
+          <a
+            href="https://brixnndev.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-blue-400"
+          >
+            <RocketLogo size={14} /> Creado por BRIXNNDEV
+          </a>
         </div>
       </footer>
     </div>
