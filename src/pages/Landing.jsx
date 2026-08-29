@@ -824,7 +824,7 @@ export default function Landing() {
         <div className="flex flex-col items-center gap-4 px-4 py-10 text-sm text-slate-500 sm:px-6">
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
             <span className="flex items-center gap-1.5">
-              <RocketLogo size={16} /> © 2026 IMPULSA · Gestión de Inventario & POS
+              <RocketLogo size={16} /> © 2026 IMPULSA · Digitación & Gestión de Inventario
             </span>
             <span className="text-slate-600">·</span>
             <a
