@@ -20,6 +20,7 @@ import { FaWhatsapp } from 'react-icons/fa'
 import { MdConfirmationNumber } from 'react-icons/md'
 import { useAuth } from '../context/AuthContext'
 import useAvatar from '../hooks/useAvatar'
+import RocketLogo from './RocketLogo'
 import { FiDollarSign, FiPhone, FiSend, FiArrowLeft } from 'react-icons/fi'
 import { io } from 'socket.io-client'
 
@@ -60,8 +61,8 @@ const SEED_EMAILS = [
   },
   {
     id: 3,
-    de: 'StockFlow',
-    correo: 'no-reply@stockflow.com',
+    de: 'IMPULSA',
+    correo: 'no-reply@impulsa.app',
     asunto: 'Tu resumen semanal de trabajos',
     texto:
       'Esta semana digitalizaste 14 hojas de vida e imprimiste 9 documentos. ¡Sigue así!',
@@ -72,8 +73,8 @@ const SEED_EMAILS = [
   },
   {
     id: 4,
-    de: 'Soporte StockFlow',
-    correo: 'soporte@stockflow.com',
+    de: 'Soporte IMPULSA',
+    correo: 'soporte@impulsa.app',
     asunto: 'Nueva versión disponible v1.0.1',
     texto: 'Mejoramos la conexión con impresoras y corregimos errores menores en el historial de escáner.',
     hora: 'Lun',
@@ -489,10 +490,10 @@ export default function DashboardLayout({ profile }) {
             <FiMenu size={22} />
           </button>
           <Link to={flatLinks[0].to} className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg font-black text-white">
-              S
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <RocketLogo size={20} />
             </span>
-            <span className="text-sm font-bold tracking-tight text-white">StockFlow</span>
+            <span className="text-sm font-bold tracking-tight text-white">IMPULSA</span>
           </Link>
 
           {/* Fecha y hora */}

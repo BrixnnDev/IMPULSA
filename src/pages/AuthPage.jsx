@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiArrowLeft, FiAlertCircle, FiZap, FiCheckCircle, FiShield, FiKey } from 'react-icons/fi'
 import { useAuth } from '../context/AuthContext'
 import DeviceMockup from '../components/DeviceMockup'
+import RocketLogo from '../components/RocketLogo'
 
 export default function AuthPage({ initialMode = 'login' }) {
   const { login, register, verificar, requiereVerificacion } = useAuth()
@@ -72,9 +73,11 @@ export default function AuthPage({ initialMode = 'login' }) {
         {/* Izquierda */}
         <div className="order-2 lg:order-1">
           <div className="mb-5 flex flex-col items-center gap-2 text-center lg:mb-6">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-xl font-black text-white shadow-lg shadow-blue-600/30">S</span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
+              <RocketLogo size={26} />
+            </span>
             <div>
-              <p className="text-xl font-black tracking-tight text-white">StockFlow</p>
+              <p className="text-xl font-black tracking-tight text-white">IMPULSA</p>
               <p className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-300">
                 <FiZap size={11} /> Inventario · POS · Digitación
               </p>

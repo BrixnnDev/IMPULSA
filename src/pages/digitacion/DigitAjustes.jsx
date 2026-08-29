@@ -337,7 +337,7 @@ export default function DigitAjustes() {
                   <p className="text-sm font-bold text-white">Oscuro</p>
                   <FiCheckCircle size={16} className="ml-auto text-blue-400" />
                 </div>
-                <p className="mt-2 text-xs text-slate-500">Tema actual de StockFlow.</p>
+                <p className="mt-2 text-xs text-slate-500">Tema actual de IMPULSA.</p>
               </button>
               <button className="rounded-xl border border-white/10 p-4 text-left opacity-50 transition hover:border-white/20">
                 <div className="flex items-center gap-2.5">
@@ -453,7 +453,7 @@ export default function DigitAjustes() {
             <dl className="mt-4 space-y-2.5 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Aplicación</dt>
-                <dd className="font-semibold text-white">StockFlow Mobile</dd>
+                <dd className="font-semibold text-white">IMPULSA Mobile</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Versión</dt>

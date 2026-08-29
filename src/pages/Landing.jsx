@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import RocketLogo from '../components/RocketLogo'
 import {
   FiArrowRight,
   FiCheckCircle,
@@ -69,7 +70,7 @@ const PLANES = [
 
 const TESTIMONIOS = [
   {
-    texto: 'Con StockFlow pude organizar mis ventas y ahora facturo 40% más que antes. Es súper fácil de usar.',
+    texto: 'Con IMPULSA pude organizar mis ventas y ahora facturo 40% más que antes. Es súper fácil de usar.',
     nombre: 'María González',
     negocio: 'Panadería Don Pepe',
     ciudad: 'Bogotá',
@@ -85,7 +86,7 @@ const TESTIMONIOS = [
     iniciales: 'CR',
   },
   {
-    texto: 'StockFlow me ayudó a entender cuáles servicios me dan más ganancia. Ahora puedo planificar mejor mi negocio.',
+    texto: 'IMPULSA me ayudó a entender cuáles servicios me dan más ganancia. Ahora puedo planificar mejor mi negocio.',
     nombre: 'Ana Herrera',
     negocio: 'Salón de Belleza Glamour',
     ciudad: 'Cali',
@@ -124,10 +125,10 @@ export default function Landing() {
       <header className="sticky top-0 z-40 border-b border-white/5 bg-night-950/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg font-black text-white">
-              S
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <RocketLogo size={20} />
             </span>
-            <span className="text-lg font-bold tracking-tight text-white">StockFlow</span>
+            <span className="text-lg font-bold tracking-tight text-white">IMPULSA</span>
           </Link>
           <nav className="ml-auto hidden items-center gap-6 text-sm font-medium text-slate-300 lg:flex">
             <a
@@ -202,7 +203,7 @@ export default function Landing() {
               <span className="block">para tu negocio</span>
             </h1>
             <p className="mt-5 text-lg font-semibold text-slate-200">
-              Digitaliza tu negocio ¡De cero a StockFlow!
+              Digitaliza tu negocio ¡De cero a IMPULSA!
             </p>
 
             <ul className="mt-7 space-y-3.5">
@@ -372,7 +373,7 @@ export default function Landing() {
             <FiZap className="text-blue-400" /> Todo en un solo lugar
           </span>
           <h2 className="mt-5 text-center text-3xl font-bold text-white sm:text-4xl">
-            ¿Qué puedes hacer con StockFlow?
+            ¿Qué puedes hacer con IMPULSA?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-slate-400">
             Herramientas pensadas para que gestiones tu negocio completo sin salir de la plataforma.
@@ -578,7 +579,7 @@ export default function Landing() {
         <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6">
           <h2 className="text-center text-3xl font-bold text-white sm:text-4xl">Casos de éxito reales</h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-slate-400">
-            Miles de emprendedores ya transformaron sus negocios con StockFlow
+            Miles de emprendedores ya transformaron sus negocios con IMPULSA
           </p>
 
           <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -627,10 +628,10 @@ export default function Landing() {
                 <div className="bg-grid pointer-events-none absolute inset-0 opacity-30" />
                 <span className="animate-orb pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-cyan-400/25 blur-2xl" />
                 <div className="relative">
-                  <span className="glow-blue mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-3xl font-black text-blue-700">
-                    S
+                  <span className="glow-blue mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white">
+                    <RocketLogo size={40} />
                   </span>
-                  <p className="mt-4 text-xl font-black tracking-tight text-white">StockFlow</p>
+                  <p className="mt-4 text-xl font-black tracking-tight text-white">IMPULSA</p>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
                     Facturación · Gestión · Digitación
                   </p>
@@ -675,7 +676,7 @@ export default function Landing() {
             </h2>
 
             <p className="mt-5 leading-relaxed text-slate-400">
-              En <strong className="text-slate-200">StockFlow</strong> creemos que todo emprendedor,
+              En <strong className="text-slate-200">IMPULSA</strong> creemos que todo emprendedor,
               sin importar el tamaño de su negocio, merece herramientas profesionales.
               Por eso creamos una plataforma simple para facturar, vender y controlar tu inventario
               desde donde estés.
@@ -721,7 +722,7 @@ export default function Landing() {
         <div className="pointer-events-none absolute bottom-0 right-1/4 h-56 w-56 rounded-full bg-cyan-500/10 blur-[100px]" />
         <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="text-center text-2xl font-bold text-white sm:text-3xl">
-            Negocios que confían en StockFlow
+            Negocios que confían en IMPULSA
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-center text-sm text-slate-400">
             Miles de emprendedores ya digitalizaron su negocio con nosotros.
@@ -729,7 +730,7 @@ export default function Landing() {
 
           <div className="panel mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-2xl lg:grid-cols-4">
             {[
-              { icon: FiShoppingCart, valor: '+7.000.000', label: 'negocios usan StockFlow', color: 'text-blue-400' },
+              { icon: FiShoppingCart, valor: '+7.000.000', label: 'negocios usan IMPULSA', color: 'text-blue-400' },
               { icon: FiGlobe, valor: '+21', label: 'países con presencia', color: 'text-cyan-400' },
               { icon: FiStar, valor: '4.8 / 5', label: 'valoración en tiendas', color: 'text-amber-400' },
               { icon: FiZap, valor: '99.9%', label: 'disponibilidad garantizada', color: 'text-emerald-400' },
@@ -783,7 +784,7 @@ export default function Landing() {
                 </span>
               </h2>
               <p className="mx-auto mt-5 max-w-xl leading-relaxed text-slate-400">
-                Descubre en StockFlow el aliado para la gestión de tu negocio y la forma
+                Descubre en IMPULSA el aliado para la gestión de tu negocio y la forma
                 más simple de controlar tu inventario y tus ventas.
               </p>
 
@@ -825,7 +826,7 @@ export default function Landing() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white">
               S
             </span>
-            <span>© 2026 StockFlow · Gestión de Inventario & POS</span>
+            <span>© 2026 IMPULSA · Gestión de Inventario & POS</span>
           </div>
           <div className="flex items-center gap-5">
             <Link to="/login" className="flex items-center gap-1.5 transition hover:text-blue-400">

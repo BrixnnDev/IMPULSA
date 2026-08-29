@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { FiLogOut, FiArrowRight, FiClipboard } from 'react-icons/fi'
 import { MdPointOfSale, MdOutlineInventory2 } from 'react-icons/md'
 import { useAuth } from '../context/AuthContext'
+import RocketLogo from '../components/RocketLogo'
 
 const profiles = [
   {
@@ -65,10 +66,10 @@ export default function SelectProfile() {
 
       <div className="absolute left-6 top-6">
         <Link to="/" className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg font-black text-white">
-            S
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
+            <RocketLogo size={20} />
           </span>
-          <span className="font-bold tracking-tight text-white">StockFlow</span>
+          <span className="font-bold tracking-tight text-white">IMPULSA</span>
         </Link>
       </div>
 

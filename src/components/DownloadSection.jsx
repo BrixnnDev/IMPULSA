@@ -49,7 +49,7 @@ export default function DownloadSection() {
             <FiDownload className="text-emerald-400" /> Disponible en tus dispositivos
           </span>
           <h2 id="descarga-title" className="mt-5 text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-            Lleva StockFlow a{' '}
+            Lleva IMPULSA a{' '}
             <span className="bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">todas partes</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-slate-400">
@@ -170,7 +170,7 @@ export default function DownloadSection() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <h4 className="font-bold text-white">App principal (Windows)</h4>
-                  <p className="mt-1 text-xs text-slate-400">El programa completo de StockFlow para gestionar inventario, ventas y facturación.</p>
+                  <p className="mt-1 text-xs text-slate-400">El programa completo de IMPULSA para gestionar inventario, ventas y facturación.</p>
                   <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/30">
                     <FiDownload size={10} /> Windows 10/11
                   </span>
