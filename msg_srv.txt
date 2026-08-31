@@ -1,1 +1,0 @@
-Fija servidor del agente a Impulsa: input muestra 'Conectado a Impulsa' sin editable, URL real oculta
