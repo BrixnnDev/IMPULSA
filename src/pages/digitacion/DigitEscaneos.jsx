@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { io } from 'socket.io-client'
 import { FiFileText, FiSearch, FiDownload, FiEye } from 'react-icons/fi'
 import RocketLogo from '../../components/RocketLogo'
 
@@ -14,6 +15,7 @@ function formatearTamano(bytes) {
 export default function DigitEscaneos() {
   const [escaneos, setEscaneos] = useState([])
   const [busqueda, setBusqueda] = useState('')
+  const [escaneresOnline, setEscaneresOnline] = useState([])
 
   useEffect(() => {
     fetch(`${API}/api/scans/list?limit=500`)
@@ -23,6 +25,28 @@ export default function DigitEscaneos() {
         setEscaneos(items)
       })
       .catch(() => setEscaneos([]))
+
+    const cargarPcs = () => {
+      fetch(`${API}/api/pc/list`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d)) setEscaneresOnline(d.filter((p) => p.online).map((p) => p.etiqueta))
+        })
+        .catch(() => {})
+    }
+    cargarPcs()
+    const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
+    s.on('pc:status', ({ pc, online }) => {
+      setEscaneresOnline((prev) => {
+        const set = new Set(prev)
+        if (online) set.add(pc)
+        else set.delete(pc)
+        return [...set]
+      })
+    })
+    s.on('pc:paired', cargarPcs)
+    s.on('pc:connected', cargarPcs)
+    return () => s.close()
   }, [])
 
   const filtrados = escaneos.filter((e) =>
@@ -72,12 +96,22 @@ export default function DigitEscaneos() {
           <p className="mt-1 text-lg font-black text-white">{totalHoy}</p>
         </div>
         <div className="panel flex items-center gap-3 px-4 py-3 col-span-2 sm:col-span-1">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/30">
+          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30' : 'bg-slate-500/10 text-slate-500 ring-slate-500/20'}`}>
             <RocketLogo size={16} />
           </span>
           <div className="min-w-0 text-left">
-            <p className="text-xs font-bold tracking-wide text-white">IMPULSA</p>
-            <p className="truncate text-[11px] text-slate-500">Archivos digitalizados</p>
+            <p className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-white">
+              IMPULSA
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30' : 'bg-slate-500/15 text-slate-400 ring-1 ring-white/10'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${escaneresOnline.length > 0 ? 'animate-pulse bg-emerald-400' : 'bg-slate-400'}`} />
+                {escaneresOnline.length > 0 ? 'Conectado' : 'Sin conexión'}
+              </span>
+            </p>
+            <p className="truncate text-[11px] text-slate-500">
+              {escaneresOnline.length > 0
+                ? `${escaneresOnline.length} PC${escaneresOnline.length > 1 ? 's' : ''} con escáner detectada${escaneresOnline.length > 1 ? 's' : ''}`
+                : 'Ninguna carpeta de escáner conectada'}
+            </p>
           </div>
         </div>
       </div>
