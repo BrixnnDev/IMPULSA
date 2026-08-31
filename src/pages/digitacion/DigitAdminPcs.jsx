@@ -20,7 +20,9 @@ export default function DigitAdminPcs() {
 
   useEffect(() => {
     if (!isAdmin) return
-    fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
+    const cargar = () => fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
+    cargar()
+    const id = setInterval(cargar, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     socketRef.current = s
     s.on('pc:status', ({ pc, online }) => {
@@ -47,7 +49,7 @@ export default function DigitAdminPcs() {
         }
       }).catch(() => {})
     })
-    return () => s.close()
+    return () => { s.close(); clearInterval(id) }
   }, [isAdmin])
 
   const copiar = (texto, label) => {

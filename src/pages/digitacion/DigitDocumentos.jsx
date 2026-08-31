@@ -63,12 +63,13 @@ export default function DigitDocumentos() {
 
   useEffect(() => {
     cargar()
+    const id = setInterval(cargar, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     s.on('connect', cargar)
     s.on('doc:new', cargar)
     s.on('doc:carpeta', cargar)
     s.on('doc:removed', cargar)
-    return () => s.close()
+    return () => { s.close(); clearInterval(id) }
   }, [cargar])
 
   const q = busqueda.trim().toLowerCase()

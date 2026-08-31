@@ -28,8 +28,6 @@ export default function DigitEscaneos() {
   }
 
   useEffect(() => {
-    cargarEscaneos()
-
     const cargarPcs = () => {
       fetch(`${API}/api/pc/list`)
         .then((r) => r.json())
@@ -38,7 +36,9 @@ export default function DigitEscaneos() {
         })
         .catch(() => {})
     }
+    cargarEscaneos()
     cargarPcs()
+    const id = setInterval(() => { cargarEscaneos(); cargarPcs() }, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     s.on('scan:new', cargarEscaneos)
     s.on('pc:status', ({ pc, online }) => {
@@ -51,7 +51,7 @@ export default function DigitEscaneos() {
     })
     s.on('pc:paired', cargarPcs)
     s.on('pc:connected', cargarPcs)
-    return () => s.close()
+    return () => { s.close(); clearInterval(id) }
   }, [])
 
   const filtrados = escaneos.filter((e) =>

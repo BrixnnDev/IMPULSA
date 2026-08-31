@@ -42,10 +42,15 @@ export default function DigitInicio() {
   const proximo = 32
 
   useEffect(() => {
-    fetch(`${API}/api/comisiones`)
-      .then((r) => r.json())
-      .then((arr) => setComisiones(Array.isArray(arr) ? arr : []))
-      .catch(() => {})
+    const cargar = () => {
+      fetch(`${API}/api/comisiones`)
+        .then((r) => r.json())
+        .then((arr) => setComisiones(Array.isArray(arr) ? arr : []))
+        .catch(() => {})
+    }
+    cargar()
+    const id = setInterval(cargar, 500)
+    return () => clearInterval(id)
   }, [])
 
   const pagados = comisiones.filter((c) => c.estado === 'Pagado').length

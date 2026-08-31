@@ -39,17 +39,19 @@ export default function DigitMovimientos() {
   const [pcStatus, setPcStatus] = useState({})
 
   useEffect(() => {
-    fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
-    fetch(`${API}/api/pc/prints`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPrintsReales(d) }).catch(() => {})
+    const cargar = () => {
+      fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
+      fetch(`${API}/api/pc/prints`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPrintsReales(d) }).catch(() => {})
+    }
+    cargar()
+    const id = setInterval(cargar, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     s.on('pc:status', ({ pc, online }) => setPcStatus((prev) => ({ ...prev, [pc]: online })))
-    s.on('pc:paired', () => {
-      fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
-    })
+    s.on('pc:paired', cargar)
     s.on('pc:print', (registro) => {
       setPrintsReales((prev) => [registro, ...prev])
     })
-    return () => s.close()
+    return () => { s.close(); clearInterval(id) }
   }, [])
 
   const copiar = (t) => navigator.clipboard?.writeText(t)

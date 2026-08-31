@@ -36,11 +36,12 @@ export default function DigitRegistros() {
     if (!isAdmin) return
     cargar()
     cargarKeys()
+    const id = setInterval(() => { cargar(); cargarKeys() }, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     s.on('user:registro', cargar)
     s.on('user:verificado', cargar)
     s.on('user:rol', cargar)
-    return () => s.close()
+    return () => { s.close(); clearInterval(id) }
   }, [isAdmin])
 
   const copiar = (texto, label) => {
