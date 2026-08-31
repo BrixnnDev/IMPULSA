@@ -17,14 +17,18 @@ export default function DigitEscaneos() {
   const [busqueda, setBusqueda] = useState('')
   const [escaneresOnline, setEscaneresOnline] = useState([])
 
-  useEffect(() => {
+  const cargarEscaneos = () => {
     fetch(`${API}/api/scans/list?limit=500`)
       .then((r) => r.json())
       .then((data) => {
         const items = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
         setEscaneos(items)
       })
-      .catch(() => setEscaneos([]))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    cargarEscaneos()
 
     const cargarPcs = () => {
       fetch(`${API}/api/pc/list`)
@@ -36,6 +40,7 @@ export default function DigitEscaneos() {
     }
     cargarPcs()
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
+    s.on('scan:new', cargarEscaneos)
     s.on('pc:status', ({ pc, online }) => {
       setEscaneresOnline((prev) => {
         const set = new Set(prev)
