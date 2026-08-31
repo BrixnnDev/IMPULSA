@@ -44,6 +44,7 @@ export default function DigitDocumentos() {
   const [verPdf, setVerPdf] = useState(null)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
+  const [eliminarCarpetaNombre, setEliminarCarpetaNombre] = useState(null)
 
   const cargar = useCallback(async () => {
     try {
@@ -90,13 +91,17 @@ export default function DigitDocumentos() {
     }
   }
 
-  const eliminarCarpeta = async (c) => {
+  const eliminarCarpeta = (c) => setEliminarCarpetaNombre(c)
+
+  const confirmarEliminarCarpeta = async () => {
+    const c = eliminarCarpetaNombre
+    if (!c) return
     const carp = await fetch(`${API}/api/documents/carpetas`).then((r) => r.json()).catch(() => [])
     const target = (Array.isArray(carp) ? carp : []).find((x) => x.nombre === c)
     if (target) {
-      if (!window.confirm(`¿Eliminar la carpeta "${c}" y todos sus documentos?`)) return
       await fetch(`${API}/api/documents/carpetas/${target.id}`, { method: 'DELETE' })
     }
+    setEliminarCarpetaNombre(null)
     cargar()
   }
 
@@ -634,6 +639,57 @@ export default function DigitDocumentos() {
               title={verPdf.nombre}
               className="h-[70vh] w-full bg-slate-200"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Flotante: confirmar eliminación de carpeta */}
+      {eliminarCarpetaNombre && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setEliminarCarpetaNombre(null)}
+        >
+          <div
+            className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600/15 text-red-400 ring-1 ring-red-500/40">
+                <FiTrash2 size={18} />
+              </span>
+              <div>
+                <h3 className="font-bold text-white">Eliminar carpeta</h3>
+                <p className="text-xs text-slate-400">Esta acción no se puede deshacer.</p>
+              </div>
+              <button
+                onClick={() => setEliminarCarpetaNombre(null)}
+                aria-label="Cerrar"
+                className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              ¿Seguro que quieres eliminar la carpeta{' '}
+              <span className="font-bold text-white">"{eliminarCarpetaNombre}"</span> y todos sus
+              documentos?
+            </p>
+
+            <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+              <button
+                onClick={() => setEliminarCarpetaNombre(null)}
+                className="btn-ghost !px-5 !py-2.5 !text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarEliminarCarpeta}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-red-500"
+              >
+                <FiTrash2 size={14} /> Sí, eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}
