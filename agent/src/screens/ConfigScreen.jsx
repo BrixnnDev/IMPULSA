@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SERVER_CONNECTED_TEXT } from '../config'
 
 function Toggle({ value, onChange }) {
   return (
@@ -30,8 +31,7 @@ function Toggle({ value, onChange }) {
   )
 }
 
-export default function ConfigScreen({ serverUrl, pcInfo, onDisconnect }) {
-  const [url, setUrl] = useState(serverUrl)
+export default function ConfigScreen({ pcInfo, onDisconnect }) {
   const [pcName, setPcName] = useState(pcInfo?.pcName || '')
   const [autoStart, setAutoStart] = useState(true)
   const [notifications, setNotifications] = useState(true)
@@ -43,7 +43,6 @@ export default function ConfigScreen({ serverUrl, pcInfo, onDisconnect }) {
   }
 
   const handleClear = () => {
-    setUrl('http://localhost:8787')
     setPcName('')
     setAutoStart(true)
     setNotifications(true)
@@ -75,13 +74,14 @@ export default function ConfigScreen({ serverUrl, pcInfo, onDisconnect }) {
             marginBottom: 8,
             fontWeight: 500,
           }}>
-            URL del Servidor
+            Servidor
           </label>
           <input
             type="text"
             className="input-field"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            value={SERVER_CONNECTED_TEXT}
+            readOnly
+            style={{ color: '#60A5FA', fontWeight: 600 }}
           />
         </div>
 
@@ -157,7 +157,7 @@ export default function ConfigScreen({ serverUrl, pcInfo, onDisconnect }) {
         </div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'Servidor', value: serverUrl, color: '#10B981' },
+            { label: 'Servidor', value: SERVER_CONNECTED_TEXT, color: '#10B981' },
             { label: 'PC', value: pcInfo?.pcName || pcName, color: '#3B82F6' },
             { label: 'IP', value: pcInfo?.ip || '---', color: '#F1F5F9' },
           ].map(item => (

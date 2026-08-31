@@ -6,10 +6,11 @@ import ConnectedScreen from './screens/ConnectedScreen'
 import TitleBar from './components/TitleBar'
 import { invoke } from '@tauri-apps/api/core'
 import { io } from 'socket.io-client'
+import { DEFAULT_SERVER_URL } from './config'
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState('splash')
-  const [serverUrl, setServerUrl] = useState('http://localhost:8787')
+  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL)
   const [pairingCode, setPairingCode] = useState('')
   const [pcInfo, setPcInfo] = useState(null)
   const socketRef = useRef(null)
