@@ -150,6 +150,7 @@ export default function DigitAccesosWeb() {
           <h2 className="flex items-center gap-2.5 text-xl font-black text-white">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600/15 text-sky-400 ring-1 ring-sky-500/30"><FiGlobe size={18} /></span>
             Accesos Web
+            <span className="rounded-full bg-sky-500/15 px-2.5 py-1 text-[11px] font-bold text-sky-300 ring-1 ring-sky-500/30">{items.length} {items.length === 1 ? 'página' : 'páginas'}</span>
           </h2>
           <p className="mt-0.5 text-xs text-slate-400">Tus páginas guardadas en un solo lugar.</p>
         </div>
@@ -193,54 +194,53 @@ export default function DigitAccesosWeb() {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">{cat}</h3>
                 <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-400 ring-1 ring-white/10">{lista.length}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="grid grid-cols-1 gap-2">
                 {lista.map((i) => (
                   <div
                     key={i.id}
-                    className="group relative flex flex-col rounded-xl border border-white/10 bg-night-900 p-3 transition hover:border-sky-500/40 hover:bg-white/[0.03]"
+                    className="group flex items-center gap-3 rounded-xl border border-white/10 bg-night-900 p-4 transition hover:border-sky-500/40 hover:bg-white/[0.03]"
                   >
-                    <div className="flex items-start gap-2.5">
-                      <a
-                        href={i.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex min-w-0 flex-1 items-center gap-2.5"
-                        title={i.url}
-                      >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5 ring-1 ring-white/10">
-                          <img src={faviconDe(i.url)} alt="" className="h-5 w-5 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                          {!faviconDe(i.url) && <FiGlobe size={16} className="text-sky-400" />}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold text-white">{i.nombre}</span>
-                          <span className="block truncate text-[10px] text-slate-500">{hostDe(i.url)}</span>
-                        </span>
-                      </a>
-                      <div className="flex shrink-0 flex-col items-center gap-0.5">
-                        <button
-                          onClick={() => setInfoItem(i)}
-                          className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                          title="Información"
-                        >
-                          <FiInfo size={13} />
-                        </button>
-                        <button
-                          onClick={() => copiar(i.url, i.id)}
-                          className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                          title="Copiar URL"
-                        >
-                          <FiCopy size={13} />
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setConfirmarEliminar(i)}
-                      className="absolute -right-1.5 -top-1.5 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-night-800 text-red-400 shadow transition hover:bg-red-600 hover:text-white group-hover:flex"
-                      title="Eliminar"
+                    <a
+                      href={i.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 flex-1 items-center gap-3"
+                      title={i.url}
                     >
-                      <FiTrash2 size={11} />
-                    </button>
-                    {copiado === i.id && <span className="absolute bottom-0 left-0 right-0 pb-1 text-center text-[10px] text-emerald-400">Copiado</span>}
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
+                        <img src={faviconDe(i.url)} alt="" className="h-6 w-6 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                        {!faviconDe(i.url) && <FiGlobe size={18} className="text-sky-400" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold text-white">{i.nombre}</span>
+                        <span className="block truncate text-xs text-slate-500">{hostDe(i.url)}</span>
+                      </span>
+                      <FiExternalLink size={15} className="ml-1 shrink-0 text-slate-500 opacity-0 transition group-hover:opacity-100" />
+                    </a>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {copiado === i.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                      <button
+                        onClick={() => setInfoItem(i)}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                        title="Información"
+                      >
+                        <FiInfo size={16} />
+                      </button>
+                      <button
+                        onClick={() => copiar(i.url, i.id)}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                        title="Copiar URL"
+                      >
+                        <FiCopy size={16} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmarEliminar(i)}
+                        className="rounded-lg p-2 text-slate-500 transition hover:bg-red-600/15 hover:text-red-400"
+                        title="Eliminar"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
