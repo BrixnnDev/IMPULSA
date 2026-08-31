@@ -137,6 +137,6 @@ initDb().then(() => {
     if (!isReady()) console.log(`Conecta Gmail abriendo: http://localhost:${cfg.port}/api/gmail/auth`)
   })
 }).catch((err) => {
-  console.error('[db] No se pudo conectar a PostgreSQL:', err.message)
+  console.error('[db] No se pudo conectar a PostgreSQL:', err.message, '| code:', err.code, '| host:', err.address)
   process.exit(1)
 })

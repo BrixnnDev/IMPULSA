@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
-  FiUsers, FiPlus, FiX, FiCopy, FiShield, FiUser, FiCheckCircle, FiClock, FiTrash2,
-  FiMail, FiLock, FiEye, FiEyeOff, FiKey,
+  FiUsers, FiPlus, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey,
+  FiMail, FiLock, FiEye, FiEyeOff, FiUser,
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
@@ -17,25 +17,35 @@ const ROLES = [
 export default function DigitRegistros() {
   const { isAdmin } = useAuth()
   const [users, setUsers] = useState([])
+  const [copiado, setCopiado] = useState('')
+  const [error, setError] = useState('')
+  const [keys, setKeys] = useState([])
+  const [keyOpen, setKeyOpen] = useState(false)
+  const [keysOpen, setKeysOpen] = useState(false)
+  const [keyRol, setKeyRol] = useState('digitador')
+  const [nuevaKey, setNuevaKey] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', rol: 'digitador', password: '' })
   const [showPass, setShowPass] = useState(false)
-  const [copiado, setCopiado] = useState('')
-  const [error, setError] = useState('')
-  const [nuevoCodigo, setNuevoCodigo] = useState(null)
 
   const cargar = () => {
     fetch(`${API}/api/users/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d) }).catch(() => {})
   }
 
+  const cargarKeys = () => {
+    fetch(`${API}/api/users/keys`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setKeys(d) }).catch(() => {})
+  }
+
   useEffect(() => {
     if (!isAdmin) return
     cargar()
+    cargarKeys()
+    const id = setInterval(() => { cargar(); cargarKeys() }, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     s.on('user:registro', cargar)
     s.on('user:verificado', cargar)
     s.on('user:rol', cargar)
-    return () => s.close()
+    return () => { s.close(); clearInterval(id) }
   }, [isAdmin])
 
   const copiar = (texto, label) => {
@@ -44,25 +54,29 @@ export default function DigitRegistros() {
     setTimeout(() => setCopiado(''), 2000)
   }
 
-  const crear = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (!form.name.trim() || !form.email.trim()) return setError('Nombre y correo son obligatorios.')
+  const crearKey = async () => {
     try {
-      const res = await fetch(`${API}/api/users/create`, {
+      const res = await fetch(`${API}/api/users/keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email, rol: form.rol, password: form.password || '123456' }),
+        body: JSON.stringify({ rol: keyRol }),
       })
       const data = await res.json()
-      if (!res.ok) return setError(data.error || 'Error.')
-      setNuevoCodigo(data.user)
-      setForm({ name: '', email: '', rol: 'digitador', password: '' })
-      setCreateOpen(false)
-      cargar()
+      if (!res.ok) return setError(data.error || 'Error al crear la key.')
+      setNuevaKey(data.key)
+      setKeyOpen(false)
+      cargarKeys()
     } catch {
       setError('Sin conexión con el servidor.')
     }
+  }
+
+  const eliminarKey = async (id) => {
+    if (!window.confirm('¿Eliminar esta key?')) return
+    try {
+      await fetch(`${API}/api/users/keys/${id}`, { method: 'DELETE' })
+      cargarKeys()
+    } catch {}
   }
 
   const cambiarRol = async (id, rol) => {
@@ -82,6 +96,27 @@ export default function DigitRegistros() {
       await fetch(`${API}/api/users/${id}`, { method: 'DELETE' })
       cargar()
     } catch {}
+  }
+
+  const crear = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!form.name.trim() || !form.email.trim()) return setError('Nombre y correo son obligatorios.')
+    try {
+      const res = await fetch(`${API}/api/users/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, email: form.email, rol: form.rol, password: form.password || '123456' }),
+      })
+      const data = await res.json()
+      if (!res.ok) return setError(data.error || 'Error.')
+      setNuevaKey(data.user)
+      setForm({ name: '', email: '', rol: 'digitador', password: '' })
+      setCreateOpen(false)
+      cargar()
+    } catch {
+      setError('Sin conexión con el servidor.')
+    }
   }
 
   if (!isAdmin) {
@@ -105,12 +140,17 @@ export default function DigitRegistros() {
           </h2>
           <p className="mt-1 text-sm text-slate-400">Gestiona usuarios, roles y códigos de verificación.</p>
         </div>
-        <button onClick={() => setCreateOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
-          <FiPlus /> Crear usuario
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setCreateOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
+            <FiPlus /> Crear usuario
+          </button>
+          <button onClick={() => { setKeyRol('digitador'); setKeyOpen(true) }} className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-amber-500">
+            <FiKey /> Crear key
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="panel flex items-center gap-3 p-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40"><FiUsers /></span>
           <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total usuarios</p><p className="text-xl font-black text-white">{users.length}</p></div>
@@ -123,6 +163,17 @@ export default function DigitRegistros() {
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiClock /></span>
           <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pendientes</p><p className="text-xl font-black text-amber-400">{pendientes}</p></div>
         </div>
+        <button
+          onClick={() => setKeysOpen(true)}
+          className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-night-900 p-4 text-left transition hover:border-amber-500/40 hover:bg-amber-500/5"
+          title="Ver keys"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey /></span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Keys</p>
+            <p className="text-xl font-black text-amber-400">{keys.length}<span className="ml-1 text-[11px] font-semibold text-slate-400">ver</span></p>
+          </div>
+        </button>
       </div>
 
       {/* Tabla de usuarios */}
@@ -230,6 +281,142 @@ export default function DigitRegistros() {
         </div>
       </div>
 
+      {/* Modal crear key */}
+      {keyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setKeyOpen(false)}>
+          <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey size={18} /></span>
+              <div><h3 className="font-bold text-white">Crear key de acceso</h3><p className="text-xs text-slate-400">Se generará una key de 6 dígitos con el rol elegido.</p></div>
+              <button onClick={() => setKeyOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
+            </div>
+
+            <div>
+              <label className="label-form">Rol de la key</label>
+              <div className="grid grid-cols-3 gap-2">
+                {ROLES.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setKeyRol(r.value)}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-xs font-semibold transition ${
+                      keyRol === r.value
+                        ? 'border-amber-500/50 bg-amber-600/15 text-amber-300'
+                        : 'border-white/10 bg-night-800 text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    {r.value === 'digitador' ? <FiUsers size={13} /> : r.value === 'pos' ? <FiKey size={13} /> : <FiShield size={13} />}
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+              <button type="button" onClick={() => setKeyOpen(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
+              <button onClick={crearKey} className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-amber-500"><FiKey size={14} /> Generar key</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal key generada */}
+      {nuevaKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setNuevaKey(null)}>
+          <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiKey size={18} /></span>
+              <div><h3 className="font-bold text-white">Key generada</h3><p className="text-xs text-slate-400">Entrégasela al nuevo usuario.</p></div>
+              <button onClick={() => setNuevaKey(null)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-black/30 p-5 text-center">
+              <p className="text-xs font-semibold text-slate-300">Key de acceso de 6 dígitos:</p>
+              <div className="mt-3 flex items-center justify-center gap-3">
+                <span className="rounded-xl bg-black/40 px-6 py-4 font-mono text-3xl font-black tracking-widest text-amber-400 ring-1 ring-amber-500/30 select-all">{nuevaKey.codigo}</span>
+                <button onClick={() => copiar(nuevaKey.codigo, 'nkey')} className="rounded-xl p-3 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiCopy size={20} /></button>
+              </div>
+              {copiado === 'nkey' && <p className="mt-2 text-xs text-emerald-400">Copiada</p>}
+              <p className="mt-3 text-xs text-slate-500">Rol asignado: <span className="font-bold text-slate-300">{ROLES.find((r) => r.value === nuevaKey.rol)?.label}</span></p>
+            </div>
+
+            <button onClick={() => setNuevaKey(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal lista de keys */}
+      {keysOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setKeysOpen(false)}>
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey size={18} /></span>
+              <div>
+                <h3 className="font-bold text-white">Keys de acceso</h3>
+                <p className="text-xs text-slate-400">{keys.length} en total · {keys.filter((k) => !k.usado).length} disponibles</p>
+              </div>
+              <button onClick={() => setKeysOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
+            </div>
+
+            {keys.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 p-10 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30"><FiKey size={24} /></span>
+                <p className="text-sm text-slate-400">Todavía no has creado ninguna key. Crea una para invitar nuevos usuarios.</p>
+                <button
+                  onClick={() => { setKeysOpen(false); setKeyRol('digitador'); setKeyOpen(true) }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-500"
+                >
+                  <FiKey size={14} /> Crear key
+                </button>
+              </div>
+            ) : (
+              <div className="min-h-0 overflow-y-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-night-850">
+                    <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 font-semibold">Código</th>
+                      <th className="px-5 py-3 font-semibold">Rol</th>
+                      <th className="px-5 py-3 font-semibold">Estado</th>
+                      <th className="px-5 py-3 font-semibold">Creado</th>
+                      <th className="px-5 py-3 font-semibold"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {keys.map((k) => (
+                      <tr key={k.id} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-50' : ''}`}>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{k.codigo}</code>
+                            <button onClick={() => copiar(k.codigo, `k-${k.id}`)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar key"><FiCopy size={14} /></button>
+                            {copiado === `k-${k.id}` && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-300 ring-1 ring-white/10">{ROLES.find((r) => r.value === k.rol)?.label || k.rol}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {k.usado ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-bold text-slate-400 ring-1 ring-slate-500/30">Usada</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-400 ring-1 ring-emerald-500/30"><FiCheckCircle size={12} /> Disponible</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-xs text-slate-500">
+                          {k.creado ? new Date(k.creado).toLocaleDateString('es-CO') : '—'}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <button onClick={() => eliminarKey(k.id)} className="rounded-lg p-2 text-slate-500 transition hover:bg-red-600/15 hover:text-red-400" title="Eliminar key"><FiTrash2 size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal crear usuario */}
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setCreateOpen(false)}>
@@ -287,31 +474,6 @@ export default function DigitRegistros() {
                 <button type="submit" className="btn-primary !px-5 !py-2.5 !text-xs"><FiUser /> Crear usuario</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal nuevo código */}
-      {nuevoCodigo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setNuevoCodigo(null)}>
-          <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiKey size={18} /></span>
-              <div><h3 className="font-bold text-white">Usuario creado</h3><p className="text-xs text-slate-400">{nuevoCodigo.name}</p></div>
-              <button onClick={() => setNuevoCodigo(null)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
-            </div>
-
-            <div className="rounded-xl border border-white/5 bg-black/30 p-5 text-center">
-              <p className="text-xs font-semibold text-slate-300">Código de verificación — entrégaselo al usuario:</p>
-              <div className="mt-3 flex items-center justify-center gap-3">
-                <span className="rounded-xl bg-black/40 px-6 py-4 font-mono text-3xl font-black tracking-widest text-emerald-400 ring-1 ring-emerald-500/30 select-all">{nuevoCodigo.codigo}</span>
-                <button onClick={() => copiar(nuevoCodigo.codigo, 'nuevo')} className="rounded-xl p-3 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiCopy size={20} /></button>
-              </div>
-              {copiado === 'nuevo' && <p className="mt-2 text-xs text-emerald-400">Copiado</p>}
-              <p className="mt-3 text-xs text-slate-500">Rol asignado: <span className="font-bold text-slate-300">{ROLES.find((r) => r.value === nuevoCodigo.rol)?.label}</span></p>
-            </div>
-
-            <button onClick={() => setNuevoCodigo(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { FiFileText, FiSearch, FiDownload, FiEye } from 'react-icons/fi'
+import { io } from 'socket.io-client'
+import { FiFileText, FiSearch, FiDownload, FiEye, FiLoader } from 'react-icons/fi'
 import RocketLogo from '../../components/RocketLogo'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -14,15 +15,43 @@ function formatearTamano(bytes) {
 export default function DigitEscaneos() {
   const [escaneos, setEscaneos] = useState([])
   const [busqueda, setBusqueda] = useState('')
+  const [escaneresOnline, setEscaneresOnline] = useState([])
 
-  useEffect(() => {
+  const cargarEscaneos = () => {
     fetch(`${API}/api/scans/list?limit=500`)
       .then((r) => r.json())
       .then((data) => {
         const items = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
         setEscaneos(items)
       })
-      .catch(() => setEscaneos([]))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    const cargarPcs = () => {
+      fetch(`${API}/api/pc/list`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d)) setEscaneresOnline(d.filter((p) => p.online).map((p) => p.etiqueta))
+        })
+        .catch(() => {})
+    }
+    cargarEscaneos()
+    cargarPcs()
+    const id = setInterval(() => { cargarEscaneos(); cargarPcs() }, 500)
+    const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
+    s.on('scan:new', cargarEscaneos)
+    s.on('pc:status', ({ pc, online }) => {
+      setEscaneresOnline((prev) => {
+        const set = new Set(prev)
+        if (online) set.add(pc)
+        else set.delete(pc)
+        return [...set]
+      })
+    })
+    s.on('pc:paired', cargarPcs)
+    s.on('pc:connected', cargarPcs)
+    return () => { s.close(); clearInterval(id) }
   }, [])
 
   const filtrados = escaneos.filter((e) =>
@@ -72,12 +101,31 @@ export default function DigitEscaneos() {
           <p className="mt-1 text-lg font-black text-white">{totalHoy}</p>
         </div>
         <div className="panel flex items-center gap-3 px-4 py-3 col-span-2 sm:col-span-1">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/30">
-            <RocketLogo size={16} />
+          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30' : 'bg-amber-500/10 text-amber-400 ring-amber-500/20'}`}>
+            {escaneresOnline.length > 0 ? (
+              <RocketLogo size={16} />
+            ) : (
+              <FiLoader size={16} className="animate-spin" />
+            )}
           </span>
           <div className="min-w-0 text-left">
-            <p className="text-xs font-bold tracking-wide text-white">IMPULSA</p>
-            <p className="truncate text-[11px] text-slate-500">Archivos digitalizados</p>
+            <p className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-white">
+              IMPULSA
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30' : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${escaneresOnline.length > 0 ? 'bg-emerald-400' : 'animate-pulse bg-amber-400'}`} />
+                {escaneresOnline.length > 0 ? 'Conexión establecida' : 'Conectando…'}
+              </span>
+            </p>
+            <p className="truncate text-[11px] text-slate-500">
+              {escaneresOnline.length > 0
+                ? `${escaneresOnline.length} PC${escaneresOnline.length > 1 ? 's' : ''} con escáner conectada${escaneresOnline.length > 1 ? 's' : ''}`
+                : 'Esperando carpeta de escáner en alguna PC'}
+            </p>
+            {escaneresOnline.length === 0 && (
+              <p className="flex items-center gap-1.5 text-[11px] text-amber-400/80">
+                <FiLoader size={11} className="animate-spin" /> Buscando carpeta de escáner…
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -41,6 +41,8 @@ export default function DigitHistorial() {
       }
     }
     cargar()
+    const id = setInterval(cargar, 500)
+    return () => clearInterval(id)
   }, [user?.id])
 
   const totalNum = Number(formCom.total) || 0

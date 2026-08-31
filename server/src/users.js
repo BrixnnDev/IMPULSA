@@ -2,8 +2,9 @@ import { Router } from 'express'
 import { randomBytes } from 'crypto'
 import { pool } from './db.js'
 
-const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const CHARS = '0123456789'
 
+// Genera un código de 6 dígitos numéricos
 function generarCodigo() {
   const bytes = randomBytes(6)
   let code = ''
@@ -82,14 +83,35 @@ export function usersRouter(io) {
     try {
       const { email, codigo } = req.body
       if (!email || !codigo) return res.status(400).json({ ok: false, error: 'Faltan datos.' })
+      const code = String(codigo).trim().toUpperCase()
       const q = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()])
       const found = q.rows[0]
       if (!found) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
       if (found.verificado) return res.json({ ok: true, user: publicUser(found), yaVerificado: true })
-      if (String(found.codigo).toUpperCase() !== String(codigo).toUpperCase()) {
+
+      const verificadoEn = new Date().toISOString()
+
+      // 1) La key es una KEY DE INVITACIÓN del admin con rol asignado
+      const kq = await pool.query('SELECT * FROM keys WHERE codigo = $1 AND usado = FALSE', [code])
+      const key = kq.rows[0]
+      if (key) {
+        await pool.query(
+          'UPDATE users SET verificado = TRUE, verificado_en = $1, rol = $2 WHERE id = $3',
+          [verificadoEn, key.rol, found.id],
+        )
+        await pool.query('UPDATE keys SET usado = TRUE WHERE id = $1', [key.id])
+        found.verificado = true
+        found.verificado_en = verificadoEn
+        found.rol = key.rol
+        console.log(`[users] Verificado con key (${key.rol}): ${found.email}`)
+        io.emit('user:verificado', { id: found.id, name: found.name, email: found.email, rol: found.rol })
+        return res.json({ ok: true, user: publicUser(found) })
+      }
+
+      // 2) Si no, la key es el CÓDIGO propio generado al registrarse
+      if (String(found.codigo).toUpperCase() !== code) {
         return res.status(400).json({ ok: false, error: 'Código incorrecto.' })
       }
-      const verificadoEn = new Date().toISOString()
       await pool.query('UPDATE users SET verificado = TRUE, verificado_en = $1 WHERE id = $2', [verificadoEn, found.id])
       found.verificado = true
       found.verificado_en = verificadoEn
@@ -253,6 +275,57 @@ export function usersRouter(io) {
       res.json({ ok: true })
     } catch (e) {
       console.error('[users] delete:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // ---- KEYS DE INVITACIÓN (admin) ----
+
+  // Crear una key con rol asignado (genera 6 dígitos automáticamente)
+  r.post('/keys', async (req, res) => {
+    try {
+      const { rol } = req.body
+      const rolFinal = ['admin', 'digitador', 'pos'].includes(rol) ? rol : 'digitador'
+      let codigo = generarCodigo()
+      // Evitar duplicados
+      for (let i = 0; i < 5; i++) {
+        const dup = await pool.query('SELECT 1 FROM keys WHERE codigo = $1', [codigo])
+        if (!dup.rowCount) break
+        codigo = generarCodigo()
+      }
+      const id = `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+      const creado = new Date().toISOString()
+      await pool.query(
+        `INSERT INTO keys (id, codigo, rol, usado, creado_por, creado)
+         VALUES ($1,$2,$3,FALSE,$4,$5)`,
+        [id, codigo, rolFinal, req.body.creado_por || '', creado],
+      )
+      console.log(`[keys] Creada key ${codigo} con rol ${rolFinal}`)
+      res.json({ ok: true, key: { id, codigo, rol: rolFinal, usado: false, creado_por: req.body.creado_por || '', creado } })
+    } catch (e) {
+      console.error('[keys] create:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Listar keys (admin)
+  r.get('/keys', async (_req, res) => {
+    try {
+      const q = await pool.query('SELECT * FROM keys ORDER BY creado DESC')
+      res.json(q.rows)
+    } catch (e) {
+      console.error('[keys] list:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Eliminar key (admin)
+  r.delete('/keys/:id', async (req, res) => {
+    try {
+      await pool.query('DELETE FROM keys WHERE id = $1', [req.params.id])
+      res.json({ ok: true })
+    } catch (e) {
+      console.error('[keys] delete:', e.message)
       res.status(500).json({ ok: false, error: e.message })
     }
   })
