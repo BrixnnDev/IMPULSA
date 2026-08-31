@@ -20,6 +20,7 @@ export default function DigitRegistros() {
   const [error, setError] = useState('')
   const [keys, setKeys] = useState([])
   const [keyOpen, setKeyOpen] = useState(false)
+  const [keysOpen, setKeysOpen] = useState(false)
   const [keyRol, setKeyRol] = useState('digitador')
   const [nuevaKey, setNuevaKey] = useState(null)
 
@@ -118,7 +119,7 @@ export default function DigitRegistros() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="panel flex items-center gap-3 p-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40"><FiUsers /></span>
           <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total usuarios</p><p className="text-xl font-black text-white">{users.length}</p></div>
@@ -131,6 +132,17 @@ export default function DigitRegistros() {
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiClock /></span>
           <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pendientes</p><p className="text-xl font-black text-amber-400">{pendientes}</p></div>
         </div>
+        <button
+          onClick={() => setKeysOpen(true)}
+          className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-night-900 p-4 text-left transition hover:border-amber-500/40 hover:bg-amber-500/5"
+          title="Ver keys"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey /></span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Keys</p>
+            <p className="text-xl font-black text-amber-400">{keys.length}<span className="ml-1 text-[11px] font-semibold text-slate-400">ver</span></p>
+          </div>
+        </button>
       </div>
 
       {/* Tabla de usuarios */}
@@ -148,42 +160,6 @@ export default function DigitRegistros() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {keys.map((k) => (
-                <tr key={`k-${k.id}`} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-50' : ''}`}>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30"><FiKey size={15} /></span>
-                      <div>
-                        <p className="font-semibold text-white">Key de acceso</p>
-                        <p className="text-xs text-slate-500">invitación con rol</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    {k.usado ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-bold text-slate-400 ring-1 ring-slate-500/30">Usada</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-400 ring-1 ring-emerald-500/30"><FiCheckCircle size={12} /> Disponible</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{k.codigo}</code>
-                      <button onClick={() => copiar(k.codigo, `k-${k.id}`)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar key"><FiCopy size={14} /></button>
-                      {copiado === `k-${k.id}` && <span className="text-[10px] text-emerald-400">Copiado</span>}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-300 ring-1 ring-white/10">{ROLES.find((r) => r.value === k.rol)?.label || k.rol}</span>
-                  </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-500">
-                    {k.creado ? new Date(k.creado).toLocaleDateString('es-CO') : '—'}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <button onClick={() => eliminarKey(k.id)} className="rounded-lg p-2 text-slate-500 transition hover:bg-red-600/15 hover:text-red-400" title="Eliminar key"><FiTrash2 size={14} /></button>
-                  </td>
-                </tr>
-              ))}
               {users.map((u) => (
                 <tr key={u.id} className="transition hover:bg-white/[0.02]">
                   <td className="px-5 py-3.5">
@@ -305,6 +281,78 @@ export default function DigitRegistros() {
             </div>
 
             <button onClick={() => setNuevaKey(null)} className="btn-primary w-full !py-2.5 !text-xs">Entendido</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal lista de keys */}
+      {keysOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setKeysOpen(false)}>
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey size={18} /></span>
+              <div>
+                <h3 className="font-bold text-white">Keys de acceso</h3>
+                <p className="text-xs text-slate-400">{keys.length} en total · {keys.filter((k) => !k.usado).length} disponibles</p>
+              </div>
+              <button onClick={() => setKeysOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
+            </div>
+
+            {keys.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 p-10 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30"><FiKey size={24} /></span>
+                <p className="text-sm text-slate-400">Todavía no has creado ninguna key. Crea una para invitar nuevos usuarios.</p>
+                <button
+                  onClick={() => { setKeysOpen(false); setKeyRol('digitador'); setKeyOpen(true) }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-500"
+                >
+                  <FiKey size={14} /> Crear key
+                </button>
+              </div>
+            ) : (
+              <div className="min-h-0 overflow-y-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-night-850">
+                    <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 font-semibold">Código</th>
+                      <th className="px-5 py-3 font-semibold">Rol</th>
+                      <th className="px-5 py-3 font-semibold">Estado</th>
+                      <th className="px-5 py-3 font-semibold">Creado</th>
+                      <th className="px-5 py-3 font-semibold"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {keys.map((k) => (
+                      <tr key={k.id} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-50' : ''}`}>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{k.codigo}</code>
+                            <button onClick={() => copiar(k.codigo, `k-${k.id}`)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar key"><FiCopy size={14} /></button>
+                            {copiado === `k-${k.id}` && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-300 ring-1 ring-white/10">{ROLES.find((r) => r.value === k.rol)?.label || k.rol}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {k.usado ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-500/15 px-2.5 py-1 text-[11px] font-bold text-slate-400 ring-1 ring-slate-500/30">Usada</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-400 ring-1 ring-emerald-500/30"><FiCheckCircle size={12} /> Disponible</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-xs text-slate-500">
+                          {k.creado ? new Date(k.creado).toLocaleDateString('es-CO') : '—'}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <button onClick={() => eliminarKey(k.id)} className="rounded-lg p-2 text-slate-500 transition hover:bg-red-600/15 hover:text-red-400" title="Eliminar key"><FiTrash2 size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

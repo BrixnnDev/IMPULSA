@@ -15,6 +15,7 @@ import {
   FiFolder,
   FiMonitor,
   FiUsers,
+  FiGlobe,
 } from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { MdConfirmationNumber } from 'react-icons/md'
@@ -146,6 +147,10 @@ const NAV = {
         { to: '/digitacion/escaneos', label: 'Historial de escáner', icon: FiFileText },
         { to: '/digitacion/movimientos', label: 'Historial de impresión', icon: FiPrinter },
       ],
+    },
+    {
+      title: 'Web',
+      items: [{ to: '/digitacion/accesos-web', label: 'Accesos Web', icon: FiGlobe }],
     },
   ],
 }
