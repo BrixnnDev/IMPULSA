@@ -160,6 +160,39 @@ CREATE TABLE IF NOT EXISTS access_keys (
       console.warn('[db] migracion keys.user_id:', e.message)
     }
 
+    // Backfill heurístico: keys usadas antes de que se guardara user_id.
+    // Relaciona cada key ya usada sin usuario con un usuario verificado del mismo
+    // rol, sin key asignada, cuya verificación ocurrió justo después de crear la key.
+    try {
+      const keysRes = await client.query(
+        `SELECT id, codigo, rol, creado FROM keys
+         WHERE usado = TRUE AND (user_id IS NULL OR user_id = '')
+         ORDER BY creado ASC`,
+      )
+      const assignees = new Set()
+      const assignedUsers = new Set()
+      for (const k of keysRes.rows) {
+        const cand = await client.query(
+          `SELECT id, name FROM users
+           WHERE verificado = TRUE
+             AND rol = $1
+             AND verificado_en IS NOT NULL
+             AND id NOT IN (SELECT user_id FROM keys WHERE user_id IS NOT NULL AND user_id <> '')
+           ORDER BY ABS(EXTRACT(EPOCH FROM (verificado_en::timestamptz - $2::timestamptz))) ASC
+           LIMIT 1`,
+          [k.rol, k.creado],
+        )
+        if (cand.rows[0] && !assignedUsers.has(cand.rows[0].id)) {
+          await client.query('UPDATE keys SET user_id = $1 WHERE id = $2', [cand.rows[0].id, k.id])
+          assignees.add(`${k.codigo} -> ${cand.rows[0].name}`)
+          assignedUsers.add(cand.rows[0].id)
+        }
+      }
+      if (assignees.size) console.log('[db] backfill keys:', [...assignees])
+    } catch (e) {
+      console.warn('[db] backfill keys:', e.message)
+    }
+
     // Carpetas iniciales por defecto
     for (const nombre of ['Hojas de vida', 'Contratos', 'Reportes']) {
       await client.query(
