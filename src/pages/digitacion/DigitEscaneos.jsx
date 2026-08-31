@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
-import { FiFileText, FiSearch, FiDownload, FiEye } from 'react-icons/fi'
+import { FiFileText, FiSearch, FiDownload, FiEye, FiLoader } from 'react-icons/fi'
 import RocketLogo from '../../components/RocketLogo'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -101,22 +101,31 @@ export default function DigitEscaneos() {
           <p className="mt-1 text-lg font-black text-white">{totalHoy}</p>
         </div>
         <div className="panel flex items-center gap-3 px-4 py-3 col-span-2 sm:col-span-1">
-          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30' : 'bg-slate-500/10 text-slate-500 ring-slate-500/20'}`}>
-            <RocketLogo size={16} />
+          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30' : 'bg-amber-500/10 text-amber-400 ring-amber-500/20'}`}>
+            {escaneresOnline.length > 0 ? (
+              <RocketLogo size={16} />
+            ) : (
+              <FiLoader size={16} className="animate-spin" />
+            )}
           </span>
           <div className="min-w-0 text-left">
             <p className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-white">
               IMPULSA
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30' : 'bg-slate-500/15 text-slate-400 ring-1 ring-white/10'}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${escaneresOnline.length > 0 ? 'animate-pulse bg-emerald-400' : 'bg-slate-400'}`} />
-                {escaneresOnline.length > 0 ? 'Conectado' : 'Sin conexión'}
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${escaneresOnline.length > 0 ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30' : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${escaneresOnline.length > 0 ? 'bg-emerald-400' : 'animate-pulse bg-amber-400'}`} />
+                {escaneresOnline.length > 0 ? 'Conexión establecida' : 'Conectando…'}
               </span>
             </p>
             <p className="truncate text-[11px] text-slate-500">
               {escaneresOnline.length > 0
-                ? `${escaneresOnline.length} PC${escaneresOnline.length > 1 ? 's' : ''} con escáner detectada${escaneresOnline.length > 1 ? 's' : ''}`
-                : 'Ninguna carpeta de escáner conectada'}
+                ? `${escaneresOnline.length} PC${escaneresOnline.length > 1 ? 's' : ''} con escáner conectada${escaneresOnline.length > 1 ? 's' : ''}`
+                : 'Esperando carpeta de escáner en alguna PC'}
             </p>
+            {escaneresOnline.length === 0 && (
+              <p className="flex items-center gap-1.5 text-[11px] text-amber-400/80">
+                <FiLoader size={11} className="animate-spin" /> Buscando carpeta de escáner…
+              </p>
+            )}
           </div>
         </div>
       </div>

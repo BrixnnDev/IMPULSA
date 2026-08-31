@@ -53,7 +53,7 @@ export default function DigitDocumentos() {
         fetch(`${API}/api/documents/carpetas`).then((r) => r.json()),
         fetch(`${API}/api/documents/list`).then((r) => r.json()),
       ])
-      setCarpetas(Array.isArray(carp) ? carp.map((c) => c.nombre) : [])
+      setCarpetas(Array.isArray(carp) ? carp.map((c) => ({ id: c.id, nombre: c.nombre })) : [])
       setDocumentos(Array.isArray(docs) ? docs : [])
     } catch {
       setError('No se pudo cargar los documentos.')
@@ -83,14 +83,15 @@ export default function DigitDocumentos() {
 
   const crearCarpeta = async () => {
     const nombre = nombreNueva.trim()
-    if (!nombre || carpetas.some((c) => c.toLowerCase() === nombre.toLowerCase())) return
+    if (!nombre || carpetas.some((c) => c.nombre.toLowerCase() === nombre.toLowerCase())) return
     try {
-      await fetch(`${API}/api/documents/carpetas`, {
+      const res = await fetch(`${API}/api/documents/carpetas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre, creado_por: user?.name || '' }),
       })
-      setCarpetas([...carpetas, nombre])
+      const data = await res.json()
+      setCarpetas([...carpetas, { id: data.id, nombre }])
       setNombreNueva('')
       setMostrarNueva(false)
     } catch {
@@ -102,11 +103,12 @@ export default function DigitDocumentos() {
 
   const confirmarEliminarCarpeta = async () => {
     const c = eliminarCarpetaNombre
-    if (!c) return
-    const carp = await fetch(`${API}/api/documents/carpetas`).then((r) => r.json()).catch(() => [])
-    const target = (Array.isArray(carp) ? carp : []).find((x) => x.nombre === c)
-    if (target) {
-      await fetch(`${API}/api/documents/carpetas/${target.id}`, { method: 'DELETE' })
+    if (!c?.id) return
+    try {
+      await fetch(`${API}/api/documents/carpetas/${c.id}`, { method: 'DELETE' })
+      setCarpetas((prev) => prev.filter((x) => x.id !== c.id))
+    } catch {
+      setError('No se pudo eliminar la carpeta.')
     }
     setEliminarCarpetaNombre(null)
     cargar()
@@ -294,30 +296,30 @@ export default function DigitDocumentos() {
         /* Carpetas cuadradas */
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
           {carpetas.map((c) => {
-            const n = documentos.filter((d) => d.carpeta === c).length
+            const n = documentos.filter((d) => d.carpeta === c.nombre).length
             return (
-              <div key={c} className="group relative text-left">
-                <button onClick={() => abrirCarpeta(c)} className="w-full text-left">
+              <div key={c.id} className="group relative text-left">
+                {isAdmin && (
+                  <button
+                    onClick={() => eliminarCarpeta(c)}
+                    title="Eliminar carpeta"
+                    className="absolute right-1.5 top-[2.7rem] z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-600/20 text-red-400 opacity-0 transition hover:bg-red-600 hover:text-white group-hover:opacity-100"
+                  >
+                    <FiTrash2 size={14} />
+                  </button>
+                )}
+                <button onClick={() => abrirCarpeta(c.nombre)} className="w-full text-left">
                   <span className="relative mx-auto block h-2.5 w-14 rounded-t-md bg-night-700 ring-1 ring-white/10 transition group-hover:bg-blue-500/40" />
                   <span className="panel relative flex aspect-square flex-col items-center justify-center gap-2.5 p-3 text-center transition duration-300 group-hover:-translate-y-1 group-hover:border-blue-500/40">
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 transition group-hover:scale-110">
                       <FiFolder size={22} />
                     </span>
-                    <span className="block w-full truncate px-0.5 text-xs font-bold text-white sm:text-sm">{c}</span>
+                    <span className="block w-full truncate px-0.5 text-xs font-bold text-white sm:text-sm">{c.nombre}</span>
                     <span className="text-[11px] text-slate-500">
                       {n} {n === 1 ? 'documento' : 'documentos'}
                     </span>
                   </span>
                 </button>
-                {isAdmin && (
-                  <button
-                    onClick={() => eliminarCarpeta(c)}
-                    title="Eliminar carpeta"
-                    className="absolute right-1 top-1 z-10 rounded-lg bg-red-600/20 p-1.5 text-red-400 opacity-0 transition hover:bg-red-600 hover:text-white group-hover:opacity-100"
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
-                )}
               </div>
             )
           })}
@@ -374,8 +376,8 @@ export default function DigitDocumentos() {
                 >
                   <option value="">Selecciona…</option>
                   {carpetas.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                    <option key={c.id} value={c.nombre}>
+                      {c.nombre}
                     </option>
                   ))}
                 </select>
@@ -679,7 +681,7 @@ export default function DigitDocumentos() {
 
             <p className="text-sm text-slate-300">
               ¿Seguro que quieres eliminar la carpeta{' '}
-              <span className="font-bold text-white">"{eliminarCarpetaNombre}"</span> y todos sus
+              <span className="font-bold text-white">"{eliminarCarpetaNombre?.nombre}"</span> y todos sus
               documentos?
             </p>
 
