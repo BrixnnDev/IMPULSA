@@ -3,15 +3,32 @@ import 'dotenv/config'
 
 const { Pool } = pg
 
-const pool = new Pool({
-  host: process.env.PG_HOST || 'localhost',
-  port: Number(process.env.PG_PORT) || 5432,
-  database: process.env.PG_DATABASE || 'impulsa',
-  user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || '',
-  max: 10,
-  idleTimeoutMillis: 30000,
-})
+console.log(
+  '[db] diagnostico:',
+  process.env.DATABASE_URL
+    ? `DATABASE_URL PRESENTE (len=${process.env.DATABASE_URL.length})`
+    : 'DATABASE_URL VACIA -> usando PG_* locales',
+)
+
+// Soporta Supabase/cloud mediante connection string (DATABASE_URL) o local con PG_*
+const useUrl = process.env.DATABASE_URL || ''
+const pool = useUrl
+  ? new Pool({
+      connectionString: useUrl,
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+    })
+  : new Pool({
+      host: process.env.PG_HOST || 'localhost',
+      port: Number(process.env.PG_PORT) || 5432,
+      database: process.env.PG_DATABASE || 'impulsa',
+      user: process.env.PG_USER || 'postgres',
+      password: process.env.PG_PASSWORD || '',
+      ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+    })
 
 export async function initDb() {
   const client = await pool.connect()
