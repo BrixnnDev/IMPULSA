@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { io } from 'socket.io-client'
 import { FiFolder, FiPlus, FiX, FiFileText, FiSearch, FiClock, FiCheckCircle, FiEye, FiDownload, FiTrash2, FiFile } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
@@ -61,6 +62,12 @@ export default function DigitDocumentos() {
 
   useEffect(() => {
     cargar()
+    const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
+    s.on('connect', cargar)
+    s.on('doc:new', cargar)
+    s.on('doc:carpeta', cargar)
+    s.on('doc:removed', cargar)
+    return () => s.close()
   }, [cargar])
 
   const q = busqueda.trim().toLowerCase()
