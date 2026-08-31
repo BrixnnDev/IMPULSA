@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
-import { FiFolder, FiPlus, FiX, FiFileText, FiSearch, FiClock, FiCheckCircle, FiEye, FiDownload, FiTrash2, FiFile } from 'react-icons/fi'
+import { FiFolder, FiPlus, FiX, FiFileText, FiSearch, FiClock, FiCheckCircle, FiEye, FiDownload, FiTrash2, FiFile, FiInfo } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -46,6 +46,7 @@ export default function DigitDocumentos() {
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
   const [eliminarCarpetaNombre, setEliminarCarpetaNombre] = useState(null)
+  const [infoCarpeta, setInfoCarpeta] = useState(null)
 
   const cargar = useCallback(async () => {
     try {
@@ -53,7 +54,7 @@ export default function DigitDocumentos() {
         fetch(`${API}/api/documents/carpetas`).then((r) => r.json()),
         fetch(`${API}/api/documents/list`).then((r) => r.json()),
       ])
-      setCarpetas(Array.isArray(carp) ? carp.map((c) => ({ id: c.id, nombre: c.nombre })) : [])
+      setCarpetas(Array.isArray(carp) ? carp.map((c) => ({ id: c.id, nombre: c.nombre, creado_por: c.creado_por, fecha: c.fecha })) : [])
       setDocumentos(Array.isArray(docs) ? docs : [])
     } catch {
       setError('No se pudo cargar los documentos.')
@@ -299,18 +300,27 @@ export default function DigitDocumentos() {
             const n = documentos.filter((d) => d.carpeta === c.nombre).length
             return (
               <div key={c.id} className="group relative text-left">
-                {isAdmin && (
-                  <button
-                    onClick={() => eliminarCarpeta(c)}
-                    title="Eliminar carpeta"
-                    className="absolute right-1.5 top-[2.7rem] z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-600/20 text-red-400 opacity-0 transition hover:bg-red-600 hover:text-white group-hover:opacity-100"
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
-                )}
                 <button onClick={() => abrirCarpeta(c.nombre)} className="w-full text-left">
                   <span className="relative mx-auto block h-2.5 w-14 rounded-t-md bg-night-700 ring-1 ring-white/10 transition group-hover:bg-blue-500/40" />
                   <span className="panel relative flex aspect-square flex-col items-center justify-center gap-2.5 p-3 text-center transition duration-300 group-hover:-translate-y-1 group-hover:border-blue-500/40">
+                    {isAdmin && (
+                      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setInfoCarpeta(c) }}
+                          title="Información de la carpeta"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-slate-300 ring-1 ring-white/10 transition hover:bg-blue-600/20 hover:text-blue-300"
+                        >
+                          <FiInfo size={13} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); eliminarCarpeta(c) }}
+                          title="Eliminar carpeta"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-600/20 text-red-400 transition hover:bg-red-600 hover:text-white"
+                        >
+                          <FiTrash2 size={13} />
+                        </button>
+                      </span>
+                    )}
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 transition group-hover:scale-110">
                       <FiFolder size={22} />
                     </span>
@@ -697,6 +707,69 @@ export default function DigitDocumentos() {
                 className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-red-500"
               >
                 <FiTrash2 size={14} /> Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Flotante: información de la carpeta */}
+      {infoCarpeta && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setInfoCarpeta(null)}
+        >
+          <div
+            className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40">
+                <FiFolder size={18} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="truncate font-bold text-white">{infoCarpeta.nombre}</h3>
+                <p className="text-xs text-slate-400">Información de la carpeta</p>
+              </div>
+              <button
+                onClick={() => setInfoCarpeta(null)}
+                aria-label="Cerrar"
+                className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+
+            {(() => {
+              const docs = documentos.filter((d) => d.carpeta === infoCarpeta.nombre)
+              const totalTam = docs.reduce((a, d) => a + (d.tamano || 0), 0)
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-xl border border-white/5 bg-black/30 px-4 py-3">
+                    <span className="text-sm text-slate-400">Documentos</span>
+                    <span className="font-bold text-white">{docs.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-white/5 bg-black/30 px-4 py-3">
+                    <span className="text-sm text-slate-400">Tamaño total</span>
+                    <span className="font-bold text-white">{formatearTamano(totalTam)}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-white/5 bg-black/30 px-4 py-3">
+                    <span className="text-sm text-slate-400">Creada por</span>
+                    <span className="text-sm font-semibold text-white">{infoCarpeta.creado_por || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-white/5 bg-black/30 px-4 py-3">
+                    <span className="text-sm text-slate-400">Fecha</span>
+                    <span className="text-sm font-semibold text-white">
+                      {infoCarpeta.fecha ? new Date(infoCarpeta.fecha).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            <div className="flex justify-end border-t border-white/5 pt-4">
+              <button onClick={() => setInfoCarpeta(null)} className="btn-primary !px-5 !py-2.5 !text-xs">
+                Entendido
               </button>
             </div>
           </div>
