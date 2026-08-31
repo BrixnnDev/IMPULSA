@@ -119,7 +119,7 @@ export default function AuthPage({ initialMode = 'login' }) {
                       <FiKey className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input
                         value={codigo}
-                        onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                        onChange={(e) => setCodigo(e.target.value.replace(/[^0-9]/g, ''))}
                         placeholder="Código de 6 dígitos"
                         className="input-field !pl-11 text-center font-mono text-xl tracking-[0.3em]"
                         maxLength={6}

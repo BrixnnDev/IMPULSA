@@ -118,6 +118,15 @@ export async function initDb() {
         valor TEXT DEFAULT '',
         PRIMARY KEY (user_id, clave)
       );
+
+      CREATE TABLE IF NOT EXISTS keys (
+        id TEXT PRIMARY KEY,
+        codigo TEXT NOT NULL UNIQUE,
+        rol TEXT NOT NULL,
+        usado BOOLEAN NOT NULL DEFAULT FALSE,
+        creado_por TEXT DEFAULT '',
+        creado TEXT NOT NULL
+      );
     `)
 
     // Seed del admin maestro

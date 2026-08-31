@@ -48,7 +48,7 @@ export default function VerifyPage() {
             <label className="label-form">Código de verificación</label>
             <input
               value={codigo}
-              onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              onChange={(e) => setCodigo(e.target.value.replace(/[^0-9]/g, ''))}
               placeholder="Código de 6 dígitos"
               className="input-field text-center font-mono text-xl tracking-[0.3em]"
               maxLength={6}
