@@ -1,1 +1,0 @@
-Add access keys system: access_keys table, API endpoints, user list with keys_total/keys_activas, frontend column Keys de acceso X en total Y disponibles

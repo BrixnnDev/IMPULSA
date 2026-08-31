@@ -135,7 +135,8 @@ CREATE TABLE IF NOT EXISTS access_keys (
         rol TEXT NOT NULL,
         usado BOOLEAN NOT NULL DEFAULT FALSE,
         creado_por TEXT DEFAULT '',
-        creado TEXT NOT NULL
+        creado TEXT NOT NULL,
+        user_id TEXT DEFAULT ''
       );
     `)
 
@@ -152,6 +153,11 @@ CREATE TABLE IF NOT EXISTS access_keys (
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`)
     } catch (e) {
       console.warn('[db] migracion avatar_url:', e.message)
+    }
+    try {
+      await client.query(`ALTER TABLE keys ADD COLUMN IF NOT EXISTS user_id TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion keys.user_id:', e.message)
     }
 
     // Carpetas iniciales por defecto

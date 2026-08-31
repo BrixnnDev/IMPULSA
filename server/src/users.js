@@ -99,7 +99,7 @@ export function usersRouter(io) {
           'UPDATE users SET verificado = TRUE, verificado_en = $1, rol = $2 WHERE id = $3',
           [verificadoEn, key.rol, found.id],
         )
-        await pool.query('UPDATE keys SET usado = TRUE WHERE id = $1', [key.id])
+        await pool.query('UPDATE keys SET usado = TRUE, user_id = $1 WHERE id = $2', [found.id, key.id])
         found.verificado = true
         found.verificado_en = verificadoEn
         found.rol = key.rol
@@ -124,13 +124,14 @@ export function usersRouter(io) {
     }
   })
 
-  // Lista de usuarios (admin) - incluye cuenta de keys de acceso
+  // Lista de usuarios (admin) - incluye cuenta de keys de acceso y código de key de invitación usada
   r.get('/list', async (_req, res) => {
     try {
       const q = await pool.query(`
         SELECT u.*,
           COUNT(ak.id) FILTER (WHERE ak.activo = TRUE) AS keys_activas,
-          COUNT(ak.id) AS keys_total
+          COUNT(ak.id) AS keys_total,
+          (SELECT k.codigo FROM keys k WHERE k.user_id = u.id AND k.usado = TRUE ORDER BY k.creado DESC LIMIT 1) AS key_codigo
         FROM users u
         LEFT JOIN access_keys ak ON ak.user_id = u.id
         GROUP BY u.id
@@ -140,6 +141,7 @@ export function usersRouter(io) {
         ...publicUser(u),
         keys_total: parseInt(u.keys_total) || 0,
         keys_activas: parseInt(u.keys_activas) || 0,
+        key_codigo: u.key_codigo || '',
       })))
     } catch (e) {
       console.error('[users] list:', e.message)
@@ -311,7 +313,12 @@ export function usersRouter(io) {
   // Listar keys (admin)
   r.get('/keys', async (_req, res) => {
     try {
-      const q = await pool.query('SELECT * FROM keys ORDER BY creado DESC')
+      const q = await pool.query(`
+        SELECT k.*, u.name AS user_name, u.email AS user_email
+        FROM keys k
+        LEFT JOIN users u ON u.id = k.user_id
+        ORDER BY k.creado DESC
+      `)
       res.json(q.rows)
     } catch (e) {
       console.error('[keys] list:', e.message)

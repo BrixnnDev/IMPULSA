@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
-  FiUsers, FiPlus, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey,
-  FiMail, FiLock, FiEye, FiEyeOff, FiUser,
+  FiUsers, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey,
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
@@ -24,9 +23,6 @@ export default function DigitRegistros() {
   const [keysOpen, setKeysOpen] = useState(false)
   const [keyRol, setKeyRol] = useState('digitador')
   const [nuevaKey, setNuevaKey] = useState(null)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', rol: 'digitador', password: '' })
-  const [showPass, setShowPass] = useState(false)
 
   const cargar = () => {
     fetch(`${API}/api/users/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d) }).catch(() => {})
@@ -98,27 +94,6 @@ export default function DigitRegistros() {
     } catch {}
   }
 
-  const crear = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (!form.name.trim() || !form.email.trim()) return setError('Nombre y correo son obligatorios.')
-    try {
-      const res = await fetch(`${API}/api/users/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email, rol: form.rol, password: form.password || '123456' }),
-      })
-      const data = await res.json()
-      if (!res.ok) return setError(data.error || 'Error.')
-      setNuevaKey(data.user)
-      setForm({ name: '', email: '', rol: 'digitador', password: '' })
-      setCreateOpen(false)
-      cargar()
-    } catch {
-      setError('Sin conexión con el servidor.')
-    }
-  }
-
   if (!isAdmin) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
@@ -141,9 +116,6 @@ export default function DigitRegistros() {
           <p className="mt-1 text-sm text-slate-400">Gestiona usuarios, roles y códigos de verificación.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => setCreateOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
-            <FiPlus /> Crear usuario
-          </button>
           <button onClick={() => { setKeyRol('digitador'); setKeyOpen(true) }} className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-amber-500">
             <FiKey /> Crear key
           </button>
@@ -213,42 +185,29 @@ export default function DigitRegistros() {
                     )}
                   </td>
                   <td className="px-5 py-3.5">
-                    {u.verificado ? (
-                      <span className="text-xs text-slate-500">—</span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{u.codigo}</code>
+                    <div className="flex items-center gap-2">
+                      <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{u.codigo || '—'}</code>
+                      {u.codigo && (
                         <button onClick={() => copiar(u.codigo, u.id)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={14} /></button>
-                        {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
-                      </div>
-                    )}
+                      )}
+                      {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                    </div>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
-                      <span className="text-slate-400">{(u.keys_total || 0)} en total</span>
-                      <span className="text-slate-600">·</span>
-                      <span className={(u.keys_activas || 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}>
-                        {(u.keys_activas || 0)} disponibles
+                    {u.key_codigo ? (
+                      <div className="flex items-center gap-2">
+                        <code className="rounded-lg bg-emerald-500/10 px-3 py-1.5 font-mono text-xs font-bold tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">{u.key_codigo}</code>
+                        <button onClick={() => copiar(u.key_codigo, `kc-${u.id}`)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar key"><FiCopy size={14} /></button>
+                        {copiado === `kc-${u.id}` && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                        <span className="text-slate-400">{(u.keys_total || 0)} en total</span>
+                        <span className="text-slate-600">·</span>
+                        <span className={(u.keys_activas || 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}>
+                          {(u.keys_activas || 0)} disponibles
+                        </span>
                       </span>
-                    </span>
-                    {(u.keys_total || 0) === 0 && u.id !== 'u-admin' && (
-                      <button
-                        onClick={async () => {
-                          const res = await fetch(`${API}/api/users/${u.id}/keys`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ nombre: 'API Key' }),
-                          })
-                          const data = await res.json()
-                          if (data.ok) {
-                            copiar(data.key.key, 'key')
-                          }
-                        }}
-                        className="ml-2 text-[10px] text-blue-400 hover:underline"
-                        title="Crear key"
-                      >
-                        + Crear
-                      </button>
                     )}
                   </td>
                   <td className="px-5 py-3.5">
@@ -376,6 +335,7 @@ export default function DigitRegistros() {
                     <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
                       <th className="px-5 py-3 font-semibold">Código</th>
                       <th className="px-5 py-3 font-semibold">Rol</th>
+                      <th className="px-5 py-3 font-semibold">Usuario</th>
                       <th className="px-5 py-3 font-semibold">Estado</th>
                       <th className="px-5 py-3 font-semibold">Creado</th>
                       <th className="px-5 py-3 font-semibold"></th>
@@ -383,7 +343,7 @@ export default function DigitRegistros() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {keys.map((k) => (
-                      <tr key={k.id} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-50' : ''}`}>
+                      <tr key={k.id} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-60' : ''}`}>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{k.codigo}</code>
@@ -393,6 +353,16 @@ export default function DigitRegistros() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className="rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-300 ring-1 ring-white/10">{ROLES.find((r) => r.value === k.rol)?.label || k.rol}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {k.usado && k.user_name ? (
+                            <div>
+                              <p className="text-xs font-semibold text-white">{k.user_name}</p>
+                              {k.user_email && <p className="text-[11px] text-slate-500">{k.user_email}</p>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-600">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5">
                           {k.usado ? (
@@ -413,67 +383,6 @@ export default function DigitRegistros() {
                 </table>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal crear usuario */}
-      {createOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setCreateOpen(false)}>
-          <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40"><FiUser size={18} /></span>
-              <div><h3 className="font-bold text-white">Crear usuario</h3><p className="text-xs text-slate-400">Se generará un código de verificación.</p></div>
-              <button onClick={() => setCreateOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
-            </div>
-
-            {error && <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{error}</div>}
-
-            <form onSubmit={crear} className="space-y-4">
-              <div>
-                <label className="label-form">Nombre *</label>
-                <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nombre completo" className="input-field" />
-              </div>
-              <div>
-                <label className="label-form">Correo *</label>
-                <div className="relative">
-                  <FiMail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
-                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="correo@ejemplo.com" className="input-field !pl-11" />
-                </div>
-              </div>
-              <div>
-                <label className="label-form">Rol</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {ROLES.map((r) => (
-                    <button
-                      key={r.value}
-                      type="button"
-                      onClick={() => setForm({ ...form, rol: r.value })}
-                      className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-xs font-semibold transition ${
-                        form.rol === r.value
-                          ? 'border-blue-500/50 bg-blue-600/15 text-blue-300'
-                          : 'border-white/10 bg-night-800 text-slate-400 hover:bg-white/5'
-                      }`}
-                    >
-                      {r.value === 'digitador' ? <FiUsers size={13} /> : r.value === 'pos' ? <FiLock size={13} /> : <FiShield size={13} />}
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="label-form">Contraseña (opcional)</label>
-                <div className="relative">
-                  <FiLock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
-                  <input type={showPass ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Por defecto: 123456" className="input-field !pl-11 !pr-11" />
-                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"><FiEye size={15} /></button>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
-                <button type="button" onClick={() => setCreateOpen(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
-                <button type="submit" className="btn-primary !px-5 !py-2.5 !text-xs"><FiUser /> Crear usuario</button>
-              </div>
-            </form>
           </div>
         </div>
       )}

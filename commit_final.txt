@@ -1,0 +1,1 @@
+Elimina boton Crear usuario, muestra nombre vinculado a key de invitacion y codigo de key en tabla usuarios
