@@ -61,6 +61,8 @@ export default function DigitAccesosWeb() {
 
   useEffect(() => {
     cargar()
+    const id = setInterval(cargar, 500)
+    return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
