@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   FiGlobe, FiPlus, FiX, FiTrash2, FiInfo, FiExternalLink, FiSearch, FiCopy,
+  FiFolder, FiCalendar, FiLayers,
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
@@ -142,6 +143,12 @@ export default function DigitAccesosWeb() {
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]))
   }, [visibles])
 
+  const hoy = new Date().toDateString()
+  const totalPaginas = items.length
+  const totalGrupos = new Set(items.map((i) => i.categoria || 'General')).size
+  const agregadasHoy = items.filter((i) => i.creado && new Date(i.creado).toDateString() === hoy).length
+  const sinCategoria = items.filter((i) => (i.categoria || 'General') === 'General').length
+
   return (
     <div className="flex h-[calc(100dvh-7rem)] flex-col gap-4">
       {/* Encabezado fijo (sin scroll) */}
@@ -167,6 +174,26 @@ export default function DigitAccesosWeb() {
           <button onClick={abrirForm} className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-500">
             <FiPlus size={14} /> Agregar página
           </button>
+        </div>
+      </div>
+
+      {/* Tarjetas de resumen */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-600/15 text-sky-400 ring-1 ring-sky-500/40"><FiGlobe /></span>
+          <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Páginas</p><p className="text-xl font-black text-white">{totalPaginas}</p></div>
+        </div>
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-400 ring-1 ring-violet-500/40"><FiFolder /></span>
+          <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Grupos</p><p className="text-xl font-black text-violet-400">{totalGrupos}</p></div>
+        </div>
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiCalendar /></span>
+          <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agregadas hoy</p><p className="text-xl font-black text-emerald-400">{agregadasHoy}</p></div>
+        </div>
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiLayers /></span>
+          <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sin categoría</p><p className="text-xl font-black text-amber-400">{sinCategoria}</p></div>
         </div>
       </div>
 
