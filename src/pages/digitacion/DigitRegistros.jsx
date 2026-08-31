@@ -134,6 +134,7 @@ export default function DigitRegistros() {
                 <th className="px-5 py-3.5 font-semibold">Usuario</th>
                 <th className="px-5 py-3.5 font-semibold">Estado</th>
                 <th className="px-5 py-3.5 font-semibold">Código verificación</th>
+                <th className="px-5 py-3.5 font-semibold">Keys de acceso</th>
                 <th className="px-5 py-3.5 font-semibold">Rol</th>
                 <th className="px-5 py-3.5 font-semibold">Creado</th>
                 <th className="px-5 py-3.5 font-semibold"></th>
@@ -169,6 +170,34 @@ export default function DigitRegistros() {
                         <button onClick={() => copiar(u.codigo, u.id)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={14} /></button>
                         {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
                       </div>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                      <span className="text-slate-400">{(u.keys_total || 0)} en total</span>
+                      <span className="text-slate-600">·</span>
+                      <span className={(u.keys_activas || 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}>
+                        {(u.keys_activas || 0)} disponibles
+                      </span>
+                    </span>
+                    {(u.keys_total || 0) === 0 && u.id !== 'u-admin' && (
+                      <button
+                        onClick={async () => {
+                          const res = await fetch(`${API}/api/users/${u.id}/keys`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ nombre: 'API Key' }),
+                          })
+                          const data = await res.json()
+                          if (data.ok) {
+                            copiar(data.key.key, 'key')
+                          }
+                        }}
+                        className="ml-2 text-[10px] text-blue-400 hover:underline"
+                        title="Crear key"
+                      >
+                        + Crear
+                      </button>
                     )}
                   </td>
                   <td className="px-5 py-3.5">

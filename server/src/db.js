@@ -101,6 +101,16 @@ export async function initDb() {
         valor TEXT DEFAULT '',
         PRIMARY KEY (user_id, clave)
       );
+
+      CREATE TABLE IF NOT EXISTS access_keys (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        key_hash TEXT NOT NULL,
+        nombre TEXT DEFAULT '',
+        activo BOOLEAN NOT NULL DEFAULT TRUE,
+        creado TEXT NOT NULL,
+        usado_en TEXT
+      );
     `)
 
     // Seed del admin maestro

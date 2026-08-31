@@ -102,13 +102,70 @@ export function usersRouter(io) {
     }
   })
 
-  // Lista de usuarios (admin)
+  // Lista de usuarios (admin) - incluye cuenta de keys de acceso
   r.get('/list', async (_req, res) => {
     try {
-      const q = await pool.query('SELECT * FROM users ORDER BY creado ASC')
-      res.json(q.rows.map(publicUser))
+      const q = await pool.query(`
+        SELECT u.*,
+          COUNT(ak.id) FILTER (WHERE ak.activo = TRUE) AS keys_activas,
+          COUNT(ak.id) AS keys_total
+        FROM users u
+        LEFT JOIN access_keys ak ON ak.user_id = u.id
+        GROUP BY u.id
+        ORDER BY u.creado ASC
+      `)
+      res.json(q.rows.map(u => ({
+        ...publicUser(u),
+        keys_total: parseInt(u.keys_total) || 0,
+        keys_activas: parseInt(u.keys_activas) || 0,
+      })))
     } catch (e) {
       console.error('[users] list:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Generar nueva access key para usuario
+  r.post('/:id/keys', async (req, res) => {
+    try {
+      const { nombre } = req.body
+      const userId = req.params.id
+      const q = await pool.query('SELECT id FROM users WHERE id = $1', [userId])
+      if (!q.rows[0]) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
+      const keyId = `k-${Date.now().toString(36)}`
+      const rawKey = `sk_${randomBytes(24).toString('hex')}`
+      const keyHash = randomBytes(32).toString('hex')
+      const creado = new Date().toISOString()
+      await pool.query(
+        `INSERT INTO access_keys (id, user_id, key_hash, nombre, activo, creado)
+         VALUES ($1,$2,$3,$4,TRUE,$5)`,
+        [keyId, userId, keyHash, nombre || 'API Key', creado],
+      )
+      res.json({ ok: true, key: { id: keyId, key: rawKey, nombre: nombre || 'API Key', activo: true, creado } })
+    } catch (e) {
+      console.error('[users] create-key:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Listar keys de un usuario
+  r.get('/:id/keys', async (req, res) => {
+    try {
+      const q = await pool.query('SELECT id, nombre, activo, creado, usado_en FROM access_keys WHERE user_id = $1 ORDER BY creado DESC', [req.params.id])
+      res.json({ ok: true, keys: q.rows })
+    } catch (e) {
+      console.error('[users] list-keys:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Revocar key
+  r.delete('/:id/keys/:keyId', async (req, res) => {
+    try {
+      await pool.query('UPDATE access_keys SET activo = FALSE WHERE id = $1 AND user_id = $2', [req.params.keyId, req.params.id])
+      res.json({ ok: true })
+    } catch (e) {
+      console.error('[users] revoke-key:', e.message)
       res.status(500).json({ ok: false, error: e.message })
     }
   })
