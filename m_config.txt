@@ -1,1 +1,0 @@
-Agente web: URL del servidor por defecto apunta a produccion (impulsx.vercel.app)
