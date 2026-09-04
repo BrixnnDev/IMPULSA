@@ -53,12 +53,14 @@ export default function DigitInicio() {
     return () => clearInterval(id)
   }, [])
 
-  const pagados = comisiones.filter((c) => c.estado === 'Pagado').length
-  const totalGanado = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
+  const aprobadas = comisiones.filter((c) => c.aprobado === true)
+  const pagados = aprobadas.filter((c) => c.estado === 'Pagado').length
+  const porCobrar = aprobadas.filter((c) => c.estado !== 'Pagado').length
+  const totalGanado = aprobadas.reduce((a, c) => a + (c.ganancia || 0), 0)
 
   const stats = [
     { label: 'Trabajos hoy', value: comisiones.length, icon: FiFileText },
-    { label: 'Por cobrar', value: comisiones.filter((c) => c.estado !== 'Pagado').length, icon: FiPrinter, warn: true },
+    { label: 'Por cobrar', value: porCobrar, icon: FiPrinter, warn: true },
     { label: 'Trabajos pagados', value: pagados, icon: FiCheckSquare },
     { label: 'Ganado', value: `S/ ${totalGanado.toFixed(2)}`, icon: FiDollarSign, money: true },
   ]

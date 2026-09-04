@@ -160,6 +160,28 @@ CREATE TABLE IF NOT EXISTS access_keys (
       console.warn('[db] migracion keys.user_id:', e.message)
     }
 
+    // Migraciones del flujo de aprobación de comisiones/valecitos
+    try {
+      await client.query(`ALTER TABLE comisiones ADD COLUMN IF NOT EXISTS aprobado BOOLEAN DEFAULT FALSE`)
+    } catch (e) {
+      console.warn('[db] migracion comisiones.aprobado:', e.message)
+    }
+    try {
+      await client.query(`ALTER TABLE comisiones ADD COLUMN IF NOT EXISTS local TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion comisiones.local:', e.message)
+    }
+    try {
+      await client.query(`ALTER TABLE comisiones ADD COLUMN IF NOT EXISTS aprobado_por TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion comisiones.aprobado_por:', e.message)
+    }
+    try {
+      await client.query(`ALTER TABLE comisiones ADD COLUMN IF NOT EXISTS aprobado_en TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion comisiones.aprobado_en:', e.message)
+    }
+
     // Backfill heurístico: keys usadas antes de que se guardara user_id.
     // Relaciona cada key ya usada sin usuario con un usuario verificado del mismo
     // rol, sin key asignada, cuya verificación ocurrió justo después de crear la key.

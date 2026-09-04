@@ -22,7 +22,9 @@ export function comisionesRouter(io) {
         ganancia: gananciaNum,
         panaderia: panaderiaNum,
         nota: nota || '',
-        estado: req.body.estado || 'Pendiente',
+        estado: 'Pendiente',
+        aprobado: false,
+        local: '',
         fecha: new Date().toISOString(),
       }
       await pool.query(
@@ -48,6 +50,74 @@ export function comisionesRouter(io) {
         q = await pool.query('SELECT * FROM comisiones ORDER BY fecha DESC')
       }
       res.json(q.rows)
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // PATCH -> aprobar o rechazar un valecito desde un local (KYB1 / KYB2).
+  // Si se aprueba, se guarda una entrada de la comisión en la carpeta del digitador.
+  r.patch('/:id/aprobar', async (req, res) => {
+    try {
+      const { local, aprobar, aprobado_por } = req.body
+      const q = await pool.query('SELECT * FROM comisiones WHERE id=$1', [req.params.id])
+      const com = q.rows[0]
+      if (!com) return res.status(404).json({ ok: false, error: 'Comisión no encontrada.' })
+
+      const esAprobacion = Boolean(aprobar)
+      const estado = esAprobacion ? 'Aprobado' : 'Rechazado'
+      const aprobadoEn = new Date().toISOString()
+      await pool.query(
+        `UPDATE comisiones
+         SET aprobado=$1, local=$2, aprobado_por=$3, aprobado_en=$4, estado=$5
+         WHERE id=$6`,
+        [esAprobacion, esAprobacion ? (local || '') : '', aprobado_por || '', esAprobacion ? aprobadoEn : '', estado, req.params.id],
+      )
+
+      io.emit('comision:update', {
+        id: req.params.id,
+        estado,
+        aprobado: esAprobacion,
+        local: esAprobacion ? local || '' : '',
+      })
+
+      // Si fue aprobado, guardar entrada en la carpeta del digitador
+      if (esAprobacion) {
+        try {
+          const nombreCarpeta = (com.trabajador || '').trim() || 'Usuarios'
+          const exist = await pool.query('SELECT 1 FROM carpetas WHERE nombre=$1', [nombreCarpeta])
+          if (!exist.rowCount) {
+            await pool.query(
+              `INSERT INTO carpetas (id, nombre, creado_por, fecha) VALUES ($1,$2,$3,$4)`,
+              [`carp-${randomUUID().slice(0, 8)}`, nombreCarpeta, aprobado_por || '', new Date().toISOString()],
+            )
+            io.emit('doc:carpeta', { nombre: nombreCarpeta, creado_por: aprobado_por || '', fecha: new Date().toISOString() })
+          }
+          const docId = `VC-${randomUUID().slice(0, 8).toUpperCase()}`
+          const detalle = com.nota ? ` · ${com.nota}` : ''
+          await pool.query(
+            `INSERT INTO documents (id,nombre,tipo,tamano,ruta,carpeta,subido_por,user_id,fecha,estado)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            [
+              docId,
+              `Valecito ${com.id} · S/ ${Number(com.total).toFixed(2)}${detalle}`,
+              'Valecito',
+              0,
+              '',
+              nombreCarpeta,
+              aprobado_por || '',
+              com.user_id || '',
+              aprobadoEn,
+              'Aprobado',
+            ],
+          )
+          io.emit('doc:new', { id: docId, carpeta: nombreCarpeta, fecha: aprobadoEn })
+        } catch (e) {
+          console.warn('[comisiones] guardar en carpeta:', e.message)
+        }
+      }
+
+      res.json({ ok: true, comision: { ...com, estado, aprobado: esAprobacion, local: esAprobacion ? local || '' : '' } })
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message })
     }

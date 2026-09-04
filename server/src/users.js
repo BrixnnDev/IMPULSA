@@ -12,6 +12,18 @@ function generarCodigo() {
   return code
 }
 
+// Crea la carpeta personal del usuario en la sección Documentos (si no existe).
+async function crearCarpetaUsuario(nombre) {
+  const nombreCarpeta = (nombre || '').trim() || 'Usuario'
+  const exist = await pool.query('SELECT 1 FROM carpetas WHERE nombre=$1', [nombreCarpeta])
+  if (!exist.rowCount) {
+    await pool.query(
+      `INSERT INTO carpetas (id, nombre, creado_por, fecha) VALUES ($1,$2,$3,$4)`,
+      [`carp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, nombreCarpeta, '', new Date().toISOString()],
+    )
+  }
+}
+
 function publicUser(u) {
   return {
     id: u.id,
@@ -52,6 +64,7 @@ export function usersRouter(io) {
         id, name: name.trim(), email: email.trim().toLowerCase(), telefono: telefono || '',
         rol: 'digitador', verificado: false, codigo, creado, verificado_en: null,
       }
+      await crearCarpetaUsuario(user.name)
       console.log(`[users] Registro: ${user.email} → código: ${codigo}`)
       io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo, rol: user.rol })
       return res.json({ ok: true, user: publicUser(user) })
@@ -261,6 +274,7 @@ export function usersRouter(io) {
         [id, name.trim(), email.trim().toLowerCase(), password || '123456', codigo, creado],
       )
       const user = { id, name: name.trim(), email: email.trim().toLowerCase(), telefono: '', rol: rol || 'digitador', verificado: false, codigo, creado, verificado_en: null }
+      await crearCarpetaUsuario(user.name)
       console.log(`[users] Admin creó: ${user.email} (${user.rol}) → código: ${codigo}`)
       io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo, rol: user.rol })
       res.json({ ok: true, user: publicUser(user) })
