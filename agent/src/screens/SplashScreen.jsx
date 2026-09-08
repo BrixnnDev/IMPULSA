@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { DEFAULT_SERVER_URL, SERVER_CONNECTED_TEXT } from '../config'
 
 export default function SplashScreen({ onComplete, onAutoPaired }) {
   const [phase, setPhase] = useState(0)
   const [progress, setProgress] = useState(0)
-  const [serverUrl, setServerUrl] = useState('http://localhost:8787')
+  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL)
   const [codeDigits, setCodeDigits] = useState(Array(6).fill(''))
   const [pairState, setPairState] = useState('idle')
   const [savedSession, setSavedSession] = useState(null)
@@ -97,7 +98,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
     let cancelled = false
     ;(async () => {
       try {
-        const srv = saved.server_url || 'http://localhost:8787'
+        const srv = DEFAULT_SERVER_URL
         setServerUrl(srv)
         const resp = await fetch(`${srv}/api/pc/detail?code=${encodeURIComponent(saved.pairing_code)}`)
         if (!resp.ok) {
@@ -191,7 +192,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
                 <div className="splash-pair-form">
                   <div className="splash-pair-field">
                     <label>Servidor</label>
-                    <input className="input-field" value={serverUrl} onChange={e => setServerUrl(e.target.value)} placeholder="http://localhost:8787" />
+                    <input className="input-field" value={SERVER_CONNECTED_TEXT} readOnly style={{ color: '#60A5FA', fontWeight: 600 }} />
                   </div>
                   <div className="splash-pair-field">
                     <label>Codigo de Emparejamiento</label>

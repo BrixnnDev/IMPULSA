@@ -115,9 +115,11 @@ export default function DigitRegistros() {
           </h2>
           <p className="mt-1 text-sm text-slate-400">Gestiona usuarios, roles y códigos de verificación.</p>
         </div>
-        <button onClick={() => { setKeyRol('digitador'); setKeyOpen(true) }} className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-amber-500">
-          <FiKey /> Crear key
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => { setKeyRol('digitador'); setKeyOpen(true) }} className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-amber-500">
+            <FiKey /> Crear key
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -155,6 +157,7 @@ export default function DigitRegistros() {
                 <th className="px-5 py-3.5 font-semibold">Usuario</th>
                 <th className="px-5 py-3.5 font-semibold">Estado</th>
                 <th className="px-5 py-3.5 font-semibold">Código verificación</th>
+                <th className="px-5 py-3.5 font-semibold">Keys de acceso</th>
                 <th className="px-5 py-3.5 font-semibold">Rol</th>
                 <th className="px-5 py-3.5 font-semibold">Creado</th>
                 <th className="px-5 py-3.5 font-semibold"></th>
@@ -182,14 +185,29 @@ export default function DigitRegistros() {
                     )}
                   </td>
                   <td className="px-5 py-3.5">
-                    {u.verificado ? (
-                      <span className="text-xs text-slate-500">—</span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{u.codigo}</code>
+                    <div className="flex items-center gap-2">
+                      <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{u.codigo || '—'}</code>
+                      {u.codigo && (
                         <button onClick={() => copiar(u.codigo, u.id)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={14} /></button>
-                        {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                      )}
+                      {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    {u.key_codigo ? (
+                      <div className="flex items-center gap-2">
+                        <code className="rounded-lg bg-emerald-500/10 px-3 py-1.5 font-mono text-xs font-bold tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">{u.key_codigo}</code>
+                        <button onClick={() => copiar(u.key_codigo, `kc-${u.id}`)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar key"><FiCopy size={14} /></button>
+                        {copiado === `kc-${u.id}` && <span className="text-[10px] text-emerald-400">Copiado</span>}
                       </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                        <span className="text-slate-400">{(u.keys_total || 0)} en total</span>
+                        <span className="text-slate-600">·</span>
+                        <span className={(u.keys_activas || 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}>
+                          {(u.keys_activas || 0)} disponibles
+                        </span>
+                      </span>
                     )}
                   </td>
                   <td className="px-5 py-3.5">
@@ -317,6 +335,7 @@ export default function DigitRegistros() {
                     <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
                       <th className="px-5 py-3 font-semibold">Código</th>
                       <th className="px-5 py-3 font-semibold">Rol</th>
+                      <th className="px-5 py-3 font-semibold">Usuario</th>
                       <th className="px-5 py-3 font-semibold">Estado</th>
                       <th className="px-5 py-3 font-semibold">Creado</th>
                       <th className="px-5 py-3 font-semibold"></th>
@@ -324,7 +343,7 @@ export default function DigitRegistros() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {keys.map((k) => (
-                      <tr key={k.id} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-50' : ''}`}>
+                      <tr key={k.id} className={`transition hover:bg-white/[0.02] ${k.usado ? 'opacity-60' : ''}`}>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{k.codigo}</code>
@@ -334,6 +353,16 @@ export default function DigitRegistros() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className="rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-300 ring-1 ring-white/10">{ROLES.find((r) => r.value === k.rol)?.label || k.rol}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {k.usado && k.user_name ? (
+                            <div>
+                              <p className="text-xs font-semibold text-white">{k.user_name}</p>
+                              {k.user_email && <p className="text-[11px] text-slate-500">{k.user_email}</p>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-600">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5">
                           {k.usado ? (

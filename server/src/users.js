@@ -12,6 +12,18 @@ function generarCodigo() {
   return code
 }
 
+// Crea la carpeta personal del usuario en la sección Documentos (si no existe).
+async function crearCarpetaUsuario(nombre) {
+  const nombreCarpeta = (nombre || '').trim() || 'Usuario'
+  const exist = await pool.query('SELECT 1 FROM carpetas WHERE nombre=$1', [nombreCarpeta])
+  if (!exist.rowCount) {
+    await pool.query(
+      `INSERT INTO carpetas (id, nombre, creado_por, fecha) VALUES ($1,$2,$3,$4)`,
+      [`carp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, nombreCarpeta, '', new Date().toISOString()],
+    )
+  }
+}
+
 function publicUser(u) {
   return {
     id: u.id,
@@ -52,6 +64,7 @@ export function usersRouter(io) {
         id, name: name.trim(), email: email.trim().toLowerCase(), telefono: telefono || '',
         rol: 'digitador', verificado: false, codigo, creado, verificado_en: null,
       }
+      await crearCarpetaUsuario(user.name)
       console.log(`[users] Registro: ${user.email} → código: ${codigo}`)
       io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo, rol: user.rol })
       return res.json({ ok: true, user: publicUser(user) })
@@ -99,7 +112,7 @@ export function usersRouter(io) {
           'UPDATE users SET verificado = TRUE, verificado_en = $1, rol = $2 WHERE id = $3',
           [verificadoEn, key.rol, found.id],
         )
-        await pool.query('UPDATE keys SET usado = TRUE WHERE id = $1', [key.id])
+        await pool.query('UPDATE keys SET usado = TRUE, user_id = $1 WHERE id = $2', [found.id, key.id])
         found.verificado = true
         found.verificado_en = verificadoEn
         found.rol = key.rol
@@ -124,13 +137,72 @@ export function usersRouter(io) {
     }
   })
 
-  // Lista de usuarios (admin)
+  // Lista de usuarios (admin) - incluye cuenta de keys de acceso y código de key de invitación usada
   r.get('/list', async (_req, res) => {
     try {
-      const q = await pool.query('SELECT * FROM users ORDER BY creado ASC')
-      res.json(q.rows.map(publicUser))
+      const q = await pool.query(`
+        SELECT u.*,
+          COUNT(ak.id) FILTER (WHERE ak.activo = TRUE) AS keys_activas,
+          COUNT(ak.id) AS keys_total,
+          (SELECT k.codigo FROM keys k WHERE k.user_id = u.id AND k.usado = TRUE ORDER BY k.creado DESC LIMIT 1) AS key_codigo
+        FROM users u
+        LEFT JOIN access_keys ak ON ak.user_id = u.id
+        GROUP BY u.id
+        ORDER BY u.creado ASC
+      `)
+      res.json(q.rows.map(u => ({
+        ...publicUser(u),
+        keys_total: parseInt(u.keys_total) || 0,
+        keys_activas: parseInt(u.keys_activas) || 0,
+        key_codigo: u.key_codigo || '',
+      })))
     } catch (e) {
       console.error('[users] list:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Generar nueva access key para usuario
+  r.post('/:id/keys', async (req, res) => {
+    try {
+      const { nombre } = req.body
+      const userId = req.params.id
+      const q = await pool.query('SELECT id FROM users WHERE id = $1', [userId])
+      if (!q.rows[0]) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
+      const keyId = `k-${Date.now().toString(36)}`
+      const rawKey = `sk_${randomBytes(24).toString('hex')}`
+      const keyHash = randomBytes(32).toString('hex')
+      const creado = new Date().toISOString()
+      await pool.query(
+        `INSERT INTO access_keys (id, user_id, key_hash, nombre, activo, creado)
+         VALUES ($1,$2,$3,$4,TRUE,$5)`,
+        [keyId, userId, keyHash, nombre || 'API Key', creado],
+      )
+      res.json({ ok: true, key: { id: keyId, key: rawKey, nombre: nombre || 'API Key', activo: true, creado } })
+    } catch (e) {
+      console.error('[users] create-key:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Listar keys de un usuario
+  r.get('/:id/keys', async (req, res) => {
+    try {
+      const q = await pool.query('SELECT id, nombre, activo, creado, usado_en FROM access_keys WHERE user_id = $1 ORDER BY creado DESC', [req.params.id])
+      res.json({ ok: true, keys: q.rows })
+    } catch (e) {
+      console.error('[users] list-keys:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Revocar key
+  r.delete('/:id/keys/:keyId', async (req, res) => {
+    try {
+      await pool.query('UPDATE access_keys SET activo = FALSE WHERE id = $1 AND user_id = $2', [req.params.keyId, req.params.id])
+      res.json({ ok: true })
+    } catch (e) {
+      console.error('[users] revoke-key:', e.message)
       res.status(500).json({ ok: false, error: e.message })
     }
   })
@@ -202,6 +274,7 @@ export function usersRouter(io) {
         [id, name.trim(), email.trim().toLowerCase(), password || '123456', codigo, creado],
       )
       const user = { id, name: name.trim(), email: email.trim().toLowerCase(), telefono: '', rol: rol || 'digitador', verificado: false, codigo, creado, verificado_en: null }
+      await crearCarpetaUsuario(user.name)
       console.log(`[users] Admin creó: ${user.email} (${user.rol}) → código: ${codigo}`)
       io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo, rol: user.rol })
       res.json({ ok: true, user: publicUser(user) })
@@ -254,7 +327,12 @@ export function usersRouter(io) {
   // Listar keys (admin)
   r.get('/keys', async (_req, res) => {
     try {
-      const q = await pool.query('SELECT * FROM keys ORDER BY creado DESC')
+      const q = await pool.query(`
+        SELECT k.*, u.name AS user_name, u.email AS user_email
+        FROM keys k
+        LEFT JOIN users u ON u.id = k.user_id
+        ORDER BY k.creado DESC
+      `)
       res.json(q.rows)
     } catch (e) {
       console.error('[keys] list:', e.message)

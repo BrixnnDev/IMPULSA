@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import { DEFAULT_SERVER_URL, SERVER_CONNECTED_TEXT } from '../config'
 
-export default function PairScreen({ serverUrl, setServerUrl, pairingCode, setPairingCode, onConnect, onBack }) {
-  const [url, setUrl] = useState(serverUrl)
+export default function PairScreen({ pairingCode, setPairingCode, onConnect, onBack }) {
   const [code, setCode] = useState(pairingCode)
 
   const handlePair = () => {
-    setServerUrl(url)
+    setServerUrl(DEFAULT_SERVER_URL)
     setPairingCode(code)
     onConnect()
   }
@@ -46,14 +46,14 @@ export default function PairScreen({ serverUrl, setServerUrl, pairingCode, setPa
             marginBottom: 8,
             fontWeight: 500,
           }}>
-            URL del Servidor
+            Servidor
           </label>
           <input
             type="text"
             className="input-field"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="http://localhost:8787"
+            value={SERVER_CONNECTED_TEXT}
+            readOnly
+            style={{ color: '#60A5FA', fontWeight: 600 }}
           />
         </div>
 

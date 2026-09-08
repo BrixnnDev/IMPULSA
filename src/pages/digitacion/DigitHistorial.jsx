@@ -1,60 +1,82 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   FiCheckCircle,
   FiDollarSign,
   FiPercent,
   FiX,
   FiUser,
+  FiShoppingBag,
+  FiArrowRight,
 } from 'react-icons/fi'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 
+const LOCALES = [
+  { key: 'KYB1', nombre: 'Papelería KYB 1', desc: 'Local principal', color: 'bg-blue-600' },
+  { key: 'KYB2', nombre: 'Papelería KYB 2', desc: 'Local secundario', color: 'bg-violet-600' },
+]
+
+function diaLocal(iso) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function hoyLocal() {
+  return diaLocal(new Date().toISOString())
+}
+
 export default function DigitHistorial() {
-  const [trabajos, setTrabajos] = useState([])
+  const navigate = useNavigate()
   const [comisiones, setComisiones] = useState([])
   const [mostrarComision, setMostrarComision] = useState(false)
   const [formCom, setFormCom] = useState({ total: '', nota: '' })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
-  const { user } = useAuth()
+  const [diaFiltro, setDiaFiltro] = useState(hoyLocal())
+  const { user, isAdmin } = useAuth()
+
+  const cargar = async () => {
+    try {
+      // Cada usuario solo ve sus propias comisiones; el admin ve todas
+      const url = isAdmin
+        ? `${API}/api/comisiones`
+        : `${API}/api/comisiones?user_id=${encodeURIComponent(user?.id || '')}`
+      const lista = await fetch(url).then((r) => r.json())
+      setComisiones(Array.isArray(lista) ? lista : [])
+    } catch {
+      setError('No se pudieron cargar las comisiones.')
+    } finally {
+      setCargando(false)
+    }
+  }
 
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        // Cada usuario solo ve sus propias comisiones; el admin ve todas
-        const url = user?.rol === 'admin'
-          ? `${API}/api/comisiones`
-          : `${API}/api/comisiones?user_id=${encodeURIComponent(user?.id || '')}`
-        const lista = await fetch(url).then((r) => r.json())
-        const arr = Array.isArray(lista) ? lista : []
-        setComisiones(arr)
-        setTrabajos(arr.map((c) => ({
-          id: c.id,
-          cliente: c.trabajador || 'Cliente',
-          tipo: 'Trabajo registrado',
-          paginas: 1,
-          monto: c.total || 0,
-          fecha: c.fecha,
-          estado: c.estado || 'Pendiente',
-        })))
-      } catch {
-        setError('No se pudieron cargar las comisiones.')
-      } finally {
-        setCargando(false)
-      }
-    }
     cargar()
-    const id = setInterval(cargar, 500)
+    const id = setInterval(cargar, 1000)
     return () => clearInterval(id)
+<<<<<<< HEAD
   }, [user?.id, user?.rol])
+=======
+  }, [])
+>>>>>>> d6601a277ddcd9310b67fd4f0a6322edac7d4160
 
   const totalNum = Number(formCom.total) || 0
   const mitad = totalNum / 2
 
-  const totalGeneral = comisiones.reduce((a, c) => a + (c.total || 0), 0)
-  const totalGanancias = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
+  const aprobadas = comisiones.filter((c) => c.aprobado === true)
+  const totalGeneral = aprobadas.reduce((a, c) => a + (c.total || 0), 0)
+  const totalGanancias = aprobadas.reduce((a, c) => a + (c.ganancia || 0), 0)
   const totalPanaderia = totalGeneral - totalGanancias
+
+  const visibles = useMemo(() => {
+    if (!diaFiltro) return [...comisiones]
+    return comisiones.filter((c) => diaLocal(c.fecha) === diaFiltro)
+  }, [comisiones, diaFiltro])
+
+  const pendientes = comisiones.filter((c) => !c.aprobado && c.estado !== 'Rechazado')
+  const pendientesLocal = (key) => pendientes.filter((c) => !c.local || c.local === '' || c.local === key)
 
   const marcarPagado = async (id) => {
     try {
@@ -63,7 +85,6 @@ export default function DigitHistorial() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: 'Pagado' }),
       })
-      setTrabajos((prev) => prev.map((t) => (t.id === id ? { ...t, estado: 'Pagado' } : t)))
       setComisiones((prev) => prev.map((c) => (c.id === id ? { ...c, estado: 'Pagado' } : c)))
     } catch {
       setError('No se pudo marcar como pagado.')
@@ -88,16 +109,6 @@ export default function DigitHistorial() {
       const data = await r.json()
       if (!r.ok || !data.ok) throw new Error(data.error || 'Error al registrar')
       setComisiones((prev) => [data.comision, ...prev])
-      const nuevo = {
-        id: data.comision.id,
-        cliente: data.comision.trabajador || 'Cliente',
-        tipo: 'Trabajo registrado',
-        paginas: 1,
-        monto: data.comision.total || 0,
-        fecha: data.comision.fecha,
-        estado: data.comision.estado || 'Pendiente',
-      }
-      setTrabajos((prev) => [nuevo, ...prev])
       setMostrarComision(false)
       setFormCom({ total: '', nota: '' })
     } catch (err) {
@@ -105,6 +116,71 @@ export default function DigitHistorial() {
     }
   }
 
+  const estadoBadge = (t) => {
+    if (t.estado === 'Rechazado') return <span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400 ring-1 ring-rose-500/30">Rechazado</span>
+    if (t.estado === 'Aprobado') return <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-400 ring-1 ring-amber-500/30">Aprobado</span>
+    if (t.estado === 'Pagado') return <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 ring-1 ring-emerald-500/30">Pagado ✓</span>
+    return <span className="rounded-full bg-slate-500/15 px-3 py-1 text-xs font-semibold text-slate-400 ring-1 ring-slate-400/30">Pendiente</span>
+  }
+
+  /* ================= ADMIN: selección de local (dos cards en el centro) ================= */
+  if (isAdmin) {
+    const totalPend = pendientes.length
+    return (
+      <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
+        <div className="text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
+            <FiDollarSign size={22} />
+          </span>
+          <h2 className="mt-3 text-2xl font-black text-white">Ticket de aprobación</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Selecciona la papelería para ver y aprobar los valecitos
+            {totalPend > 0 ? ` · ${totalPend} pendientes en total` : ' del día'}.
+          </p>
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-300 ring-1 ring-amber-500/30">
+            {cargando ? 'Cargando…' : `${totalPend} valecito${totalPend !== 1 ? 's' : ''} por aprobar`}
+          </span>
+        </div>
+
+        {error && (
+          <div className="mx-auto w-full max-w-xl rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-2 text-center text-xs text-red-300">{error}</div>
+        )}
+
+        <div className="flex flex-1 items-start justify-center px-2">
+          <div className="grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
+            {LOCALES.map((l) => {
+              const pend = pendientesLocal(l.key).length
+              return (
+                <button
+                  key={l.key}
+                  onClick={() => navigate(`/digitacion/ticket/${l.key}`)}
+                  className="panel group flex flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-0.5 hover:ring-1 hover:ring-blue-500/50"
+                >
+                  <div className="flex w-full items-start justify-between">
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-lg ${l.color}`}>
+                      <FiShoppingBag size={22} />
+                    </span>
+                    <span className="flex h-10 min-w-10 items-center justify-center rounded-full bg-white/5 px-2 text-sm font-black text-white ring-1 ring-white/10">
+                      {pend}
+                    </span>
+                  </div>
+                  <div className="w-full">
+                    <p className="text-lg font-black text-white">{l.nombre}</p>
+                    <p className="text-xs text-slate-500">{l.desc}</p>
+                  </div>
+                  <span className="mt-auto inline-flex items-center gap-1.5 rounded-xl bg-blue-600/15 px-4 py-2 text-xs font-bold text-blue-300 ring-1 ring-blue-500/30 transition group-hover:bg-blue-600 group-hover:text-white">
+                    {pend > 0 ? `Aprobar ${pend} valecito${pend !== 1 ? 's' : ''}` : 'Ver historial'} <FiArrowRight size={13} />
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /* ================= DIGITADOR: perfil + historial + registrar ================= */
   return (
     <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-4 overflow-hidden">
       {/* Título + botón comisión */}
@@ -117,9 +193,19 @@ export default function DigitHistorial() {
             Historial de valecitos
           </h2>
         </div>
-        <button onClick={() => setMostrarComision(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
-          <FiPercent /> Registrar comisión
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-night-800 px-3 py-2">
+            <input
+              type="date"
+              value={diaFiltro}
+              onChange={(e) => setDiaFiltro(e.target.value)}
+              className="w-32 bg-transparent text-xs font-semibold text-white outline-none [color-scheme:dark]"
+            />
+          </div>
+          <button onClick={() => setMostrarComision(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
+            <FiPercent /> Registrar comisión
+          </button>
+        </div>
       </div>
 
       {/* Dos cuadros: perfil + historial */}
@@ -142,13 +228,13 @@ export default function DigitHistorial() {
           <dl className="mt-4 space-y-2.5 text-sm">
             <div className="flex items-center justify-between gap-4">
               <dt className="flex items-center gap-2.5 text-slate-400">
-                <FiCheckCircle size={14} className="text-blue-400" /> Trabajos
+                <FiCheckCircle size={14} className="text-blue-400" /> Aprobados
               </dt>
-              <dd className="font-bold text-white">{comisiones.length}</dd>
+              <dd className="font-bold text-white">{aprobadas.length}</dd>
             </div>
             <div className="flex items-center justify-between gap-4">
               <dt className="flex items-center gap-2.5 text-slate-400">
-                <FiDollarSign size={14} className="text-white" /> Dinero total
+                <FiDollarSign size={14} className="text-white" /> Dinero aprobado
               </dt>
               <dd className="font-bold text-white">S/ {totalGeneral.toFixed(2)}</dd>
             </div>
@@ -166,80 +252,68 @@ export default function DigitHistorial() {
             </div>
           </dl>
 
-          {/* Historial de comisiones */}
+          {/* Historial de comisiones (del día seleccionado) */}
           <div className="mt-auto border-t border-white/5 pt-4">
             <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Registro de comisiones ({comisiones.length})
+              Registro del día ({visibles.length})
             </p>
             <ul className="space-y-2">
-              {[...comisiones].reverse().slice(0, 2).map((c) => (
+              {[...visibles].slice(0, 3).map((c) => (
                 <li key={c.id} className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-white">
-                      Trabajo S/ {c.total.toFixed(2)}
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      {c.id} · {new Date(c.fecha).toLocaleDateString('es-PE', { dateStyle: 'short' })}
-                      {c.nota && ` · ${c.nota}`}
-                    </p>
+                    <p className="truncate text-xs font-semibold text-white">Trabajo S/ {c.total.toFixed(2)}</p>
+                    <p className="text-[11px] text-slate-500">{c.id} · {c.estado}{c.nota && ` · ${c.nota}`}</p>
                   </div>
                   <span className="shrink-0 text-xs font-black text-emerald-400">+ S/ {c.ganancia.toFixed(2)}</span>
                 </li>
               ))}
-              {comisiones.length > 2 && (
-                <li className="text-[11px] text-slate-500">+{comisiones.length - 2} registros anteriores</li>
-              )}
-              {comisiones.length === 0 && (
+              {visibles.length === 0 && (
                 <li className="rounded-xl bg-white/[0.03] px-3 py-3 text-center text-xs text-slate-500 ring-1 ring-white/5">
-                  Sin registros aún.
+                  Sin registros en esta fecha.
                 </li>
               )}
             </ul>
+            {visibles.length > 3 && <li className="mt-2 text-[11px] text-slate-500">+{visibles.length - 3} registros más</li>}
           </div>
         </div>
 
-        {/* Historial de trabajos */}
+        {/* Lista de trabajos del día */}
         <div className="panel min-h-0 flex-1 overflow-hidden">
           {error && (
             <div className="border-b border-red-500/20 bg-red-500/10 px-5 py-2 text-xs text-red-300">{error}</div>
           )}
           {cargando ? (
             <p className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Cargando…</p>
-          ) : trabajos.length === 0 ? (
+          ) : visibles.length === 0 ? (
             <p className="flex h-full items-center justify-center p-10 text-sm text-slate-500">
-              Aún no hay trabajos registrados. Registra tu primera comisión.
+              No hay valecitos en esta fecha.
             </p>
           ) : (
             <ul className="h-full divide-y divide-white/5 overflow-y-auto">
-              {[...trabajos].reverse().map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition hover:bg-white/[0.03]">
-                <span className="rounded-lg bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">
-                  {t.id}
-                </span>
-                <div className="min-w-[160px] flex-1">
-                  <p className="text-sm font-semibold text-white">{t.cliente}</p>
-                  <p className="text-xs text-slate-500">
-                    {t.tipo} · {t.paginas} pág. ·{' '}
-                    {new Date(t.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-black text-emerald-400 ring-1 ring-emerald-500/30">
-                  + S/ {t.monto.toFixed(2)}
-                </span>
-                {t.estado === 'Pendiente' ? (
-                  <button
-                    onClick={() => marcarPagado(t.id)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-600/15 px-3 py-1.5 text-xs font-bold text-blue-300 ring-1 ring-blue-500/40 transition hover:bg-blue-600 hover:text-white"
-                  >
-                    <FiCheckCircle size={13} /> Cobrar
-                  </button>
-                ) : (
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 ring-1 ring-emerald-500/30">
-                    Pagado ✓
+              {[...visibles].reverse().map((t) => (
+                <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition hover:bg-white/[0.03]">
+                  <span className="rounded-lg bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">{t.id}</span>
+                  <div className="min-w-[160px] flex-1">
+                    <p className="text-sm font-semibold text-white">{t.trabajador || 'Cliente'}</p>
+                    <p className="text-xs text-slate-500">
+                      {t.nota ? t.nota : 'Trabajo registrado'} ·{' '}
+                      {new Date(t.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-black text-emerald-400 ring-1 ring-emerald-500/30">
+                    S/ {t.total.toFixed(2)}
                   </span>
-                )}
-              </li>
-            ))}
+                  {estadoBadge(t)}
+                  {t.aprobado && t.estado === 'Aprobado' && (
+                    <button
+                      onClick={() => marcarPagado(t.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-blue-600/15 px-3 py-1.5 text-xs font-bold text-blue-300 ring-1 ring-blue-500/40 transition hover:bg-blue-600 hover:text-white"
+                    >
+                      <FiCheckCircle size={13} /> Cobrar
+                    </button>
+                  )}
+                </li>
+              ))}
             </ul>
           )}
         </div>

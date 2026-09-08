@@ -11,8 +11,8 @@ echo   Este agente conecta tu PC con el sistema.
 echo.
 
 REM === Pedir URL del servidor ===
-set /p SERVER_URL="   URL del servidor (Enter = http://localhost:8787): "
-if "%SERVER_URL%"=="" set SERVER_URL=http://localhost:8787
+set /p SERVER_URL="   URL del servidor (Enter = https://impulsx.vercel.app): "
+if "%SERVER_URL%"=="" set SERVER_URL=https://impulsx.vercel.app
 
 REM === Pedir codigo de emparejamiento ===
 set /p PAIR_CODE="   Codigo de emparejamiento: "

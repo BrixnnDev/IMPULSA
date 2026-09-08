@@ -1,4 +1,4 @@
 {
-  "servidor": "http://localhost:8787",
+  "servidor": "https://impulsx.vercel.app/",
   "pc": "PC-01"
 }
