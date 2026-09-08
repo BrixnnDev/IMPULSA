@@ -110,7 +110,7 @@ export default function DigitMensajes() {
   const contactoActivo = contactos.find((c) => c.id === activo) || null
 
   return (
-    <div className="flex h-[calc(100vh-7.5rem)] min-h-0 flex-col overflow-hidden">
+    <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col overflow-hidden lg:h-[calc(100vh-8rem)]">
       <div className="flex shrink-0 items-center justify-between gap-3 pb-3">
         <div>
           <h2 className="flex items-center gap-2.5 text-xl font-black text-white">
