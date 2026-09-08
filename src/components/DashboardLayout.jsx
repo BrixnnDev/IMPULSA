@@ -134,23 +134,17 @@ const NAV = {
       title: 'Home',
       items: [
         { to: '/digitacion', label: 'Inicio', icon: FiHome, end: true },
-        { to: '/digitacion/historial', label: 'Ticket', icon: MdConfirmationNumber },
-      ],
-    },
-    {
-      title: 'Documentos',
-      items: [{ to: '/digitacion/documentos', label: 'Documentos', icon: FiFolder }],
-    },
-    {
-      title: 'Impresión',
-      items: [
+        { to: '/digitacion/documentos', label: 'Documentos', icon: FiFolder },
         { to: '/digitacion/escaneos', label: 'Historial de escáner', icon: FiFileText },
         { to: '/digitacion/movimientos', label: 'Historial de impresión', icon: FiPrinter },
+        { to: '/digitacion/accesos-web', label: 'Accesos Web', icon: FiGlobe },
       ],
     },
     {
-      title: 'Web',
-      items: [{ to: '/digitacion/accesos-web', label: 'Accesos Web', icon: FiGlobe }],
+      title: 'Ticket',
+      items: [
+        { to: '/digitacion/historial', label: 'Ticket', icon: MdConfirmationNumber },
+      ],
     },
   ],
 }
@@ -191,6 +185,38 @@ export default function DashboardLayout({ profile }) {
   const [perfilOpen, setPerfilOpen] = useState(false)
   const [avatar] = useAvatar()
   const { user, logout, isAdmin } = useAuth()
+
+  // Ganancias del usuario actual
+  const [ganancias, setGanancias] = useState({ hoy: 0, semana: 0, pendiente: 0 })
+  useEffect(() => {
+    if (!user?.id) return
+    const cargar = () => {
+      const url = isAdmin
+        ? `${API_URL}/api/comisiones`
+        : `${API_URL}/api/comisiones?user_id=${encodeURIComponent(user.id)}`
+      fetch(url)
+        .then((r) => r.json())
+        .then((arr) => {
+          if (!Array.isArray(arr)) return
+          const hoyStr = new Date().toISOString().slice(0, 10)
+          const lunesMs = (() => {
+            const d = new Date(); const day = d.getDay(); const diff = (day === 0 ? -6 : 1 - day)
+            d.setDate(d.getDate() + diff); d.setHours(0, 0, 0, 0); return d.getTime()
+          })()
+          const hoy = arr.filter((c) => c.fecha?.slice(0, 10) === hoyStr)
+            .reduce((a, c) => a + (c.ganancia || 0), 0)
+          const semana = arr.filter((c) => new Date(c.fecha).getTime() >= lunesMs)
+            .reduce((a, c) => a + (c.ganancia || 0), 0)
+          const pendiente = arr.filter((c) => c.estado !== 'Pagado')
+            .reduce((a, c) => a + (c.ganancia || 0), 0)
+          setGanancias({ hoy, semana, pendiente })
+        })
+        .catch(() => {})
+    }
+    cargar()
+    const id = setInterval(cargar, 3000)
+    return () => clearInterval(id)
+  }, [user?.id, isAdmin])
 
   const [notifs, setNotifs] = useState(SEED_NOTIFS)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -641,15 +667,15 @@ export default function DashboardLayout({ profile }) {
               <dl className="space-y-2.5 text-sm">
                 <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <dt className="text-slate-400">Hoy</dt>
-                  <dd className="font-black text-emerald-400">$ 0</dd>
+                  <dd className="font-black text-emerald-400">S/ {ganancias.hoy.toFixed(2)}</dd>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <dt className="text-slate-400">Esta semana</dt>
-                  <dd className="font-black text-emerald-400">$ 0</dd>
+                  <dd className="font-black text-emerald-400">S/ {ganancias.semana.toFixed(2)}</dd>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <dt className="text-slate-400">Pagos pendientes</dt>
-                  <dd className="font-black text-amber-400">$ 0</dd>
+                  <dd className="font-black text-amber-400">S/ {ganancias.pendiente.toFixed(2)}</dd>
                 </div>
               </dl>
             </div>

@@ -42,8 +42,13 @@ export default function DigitInicio() {
   const proximo = 32
 
   useEffect(() => {
+    if (!user?.id) return
     const cargar = () => {
-      fetch(`${API}/api/comisiones`)
+      // Cada usuario solo ve sus propias comisiones; el admin ve todas
+      const url = user.rol === 'admin'
+        ? `${API}/api/comisiones`
+        : `${API}/api/comisiones?user_id=${encodeURIComponent(user.id)}`
+      fetch(url)
         .then((r) => r.json())
         .then((arr) => setComisiones(Array.isArray(arr) ? arr : []))
         .catch(() => {})
@@ -51,7 +56,7 @@ export default function DigitInicio() {
     cargar()
     const id = setInterval(cargar, 500)
     return () => clearInterval(id)
-  }, [])
+  }, [user?.id, user?.rol])
 
   const pagados = comisiones.filter((c) => c.estado === 'Pagado').length
   const totalGanado = comisiones.reduce((a, c) => a + (c.ganancia || 0), 0)
@@ -83,7 +88,7 @@ export default function DigitInicio() {
       <div>
         <h2 className="text-2xl font-black text-white">{saludo} 👋</h2>
         <p className="mt-1 text-sm text-slate-400">
-          {user?.email || 'Digitación'} · Ganas por cada trabajo completado que registres.
+          Ganas por cada trabajo completado que registres.
         </p>
       </div>
 
@@ -93,7 +98,6 @@ export default function DigitInicio() {
         </span>
         <div className="min-w-0">
           <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
-          <p className="truncate text-xs text-slate-500">{user?.email || 'cuenta@impulsa.app'}</p>
         </div>
       </div>
 
@@ -123,7 +127,7 @@ export default function DigitInicio() {
           <div className="flex items-center justify-between border-b border-white/5 px-6 py-5">
             <h3 className="font-bold text-white">Últimos trabajos realizados</h3>
             <span className="rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
-              Global
+              {user?.rol === 'admin' ? 'Global' : 'Mis trabajos'}
             </span>
           </div>
           <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">

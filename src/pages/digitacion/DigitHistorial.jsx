@@ -22,7 +22,11 @@ export default function DigitHistorial() {
   useEffect(() => {
     const cargar = async () => {
       try {
-        const lista = await fetch(`${API}/api/comisiones`).then((r) => r.json())
+        // Cada usuario solo ve sus propias comisiones; el admin ve todas
+        const url = user?.rol === 'admin'
+          ? `${API}/api/comisiones`
+          : `${API}/api/comisiones?user_id=${encodeURIComponent(user?.id || '')}`
+        const lista = await fetch(url).then((r) => r.json())
         const arr = Array.isArray(lista) ? lista : []
         setComisiones(arr)
         setTrabajos(arr.map((c) => ({
@@ -43,7 +47,7 @@ export default function DigitHistorial() {
     cargar()
     const id = setInterval(cargar, 500)
     return () => clearInterval(id)
-  }, [user?.id])
+  }, [user?.id, user?.rol])
 
   const totalNum = Number(formCom.total) || 0
   const mitad = totalNum / 2

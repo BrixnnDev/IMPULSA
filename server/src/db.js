@@ -129,13 +129,16 @@ export async function initDb() {
       );
     `)
 
-    // Seed del admin maestro
+    // Seed del admin maestro — credenciales configurables por variables de entorno
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@impulsa.app'
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
     await client.query(
       `INSERT INTO users (id, name, email, password, rol, verificado, creado, verificado_en)
-       VALUES ('u-admin', 'Administrador', 'admin@impulsa.app', 'admin123', 'admin', TRUE, $1, $1)
-       ON CONFLICT (id) DO NOTHING`,
-      [new Date().toISOString()],
+       VALUES ('u-admin', 'Administrador', $1, $2, 'admin', TRUE, $3, $3)
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, password = EXCLUDED.password`,
+      [adminEmail, adminPassword, new Date().toISOString()],
     )
+    console.log(`[db] Admin maestro: ${adminEmail}`)
 
     // Migraciones para tablas ya existentes (mantiene datos)
     try {
@@ -144,13 +147,24 @@ export async function initDb() {
       console.warn('[db] migracion avatar_url:', e.message)
     }
 
-    // Carpetas iniciales por defecto
-    for (const nombre of ['Hojas de vida', 'Contratos', 'Reportes']) {
-      await client.query(
-        `INSERT INTO carpetas (id, nombre, creado_por, fecha)
-         VALUES ($1, $2, '', $3) ON CONFLICT (nombre) DO NOTHING`,
-        [`carp-${Math.random().toString(36).slice(2, 10)}`, nombre, new Date().toISOString()],
-      )
+    // Eliminar credenciales antiguas de prueba si existen
+    try {
+      await client.query(`DELETE FROM users WHERE email = 'bxzaradmin@gmail.com'`)
+    } catch (e) {
+      console.warn('[db] limpieza credenciales antiguas:', e.message)
+    }
+
+    // Carpetas iniciales por defecto — solo si no existe NINGUNA carpeta todavía
+    const carpCount = await client.query('SELECT COUNT(*) FROM carpetas')
+    if (Number(carpCount.rows[0].count) === 0) {
+      for (const nombre of ['Hojas de vida', 'Contratos', 'Reportes']) {
+        await client.query(
+          `INSERT INTO carpetas (id, nombre, creado_por, fecha)
+           VALUES ($1, $2, '', $3) ON CONFLICT (nombre) DO NOTHING`,
+          [`carp-${Math.random().toString(36).slice(2, 10)}`, nombre, new Date().toISOString()],
+        )
+      }
+      console.log('[db] Carpetas iniciales creadas.')
     }
 
     console.log('[db] PostgreSQL conectado, tablas (persistentes) listas.')

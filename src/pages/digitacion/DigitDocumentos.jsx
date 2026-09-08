@@ -63,7 +63,7 @@ export default function DigitDocumentos() {
 
   useEffect(() => {
     cargar()
-    const id = setInterval(cargar, 500)
+    const id = setInterval(cargar, 5000)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
     s.on('connect', cargar)
     s.on('doc:new', cargar)
@@ -304,15 +304,17 @@ export default function DigitDocumentos() {
                 <button onClick={() => abrirCarpeta(c.nombre)} className="w-full text-left">
                   <span className="relative mx-auto block h-2.5 w-14 rounded-t-md bg-night-700 ring-1 ring-white/10 transition group-hover:bg-blue-500/40" />
                   <span className="panel relative flex aspect-square flex-col items-center justify-center gap-2.5 p-3 text-center transition duration-300 group-hover:-translate-y-1 group-hover:border-blue-500/40">
-                    {isAdmin && (
+                    {/* Botones de acción — visibles para admin e info solo admin */}
                       <span className="absolute right-2 top-2 z-10 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setInfoCarpeta(c) }}
-                          title="Información de la carpeta"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-slate-300 ring-1 ring-white/10 transition hover:bg-blue-600/20 hover:text-blue-300"
-                        >
-                          <FiInfo size={13} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setInfoCarpeta(c) }}
+                            title="Información de la carpeta"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-slate-300 ring-1 ring-white/10 transition hover:bg-blue-600/20 hover:text-blue-300"
+                          >
+                            <FiInfo size={13} />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); eliminarCarpeta(c) }}
                           title="Eliminar carpeta"
@@ -321,7 +323,6 @@ export default function DigitDocumentos() {
                           <FiTrash2 size={13} />
                         </button>
                       </span>
-                    )}
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 transition group-hover:scale-110">
                       <FiFolder size={22} />
                     </span>
