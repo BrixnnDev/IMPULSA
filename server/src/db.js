@@ -138,6 +138,22 @@ CREATE TABLE IF NOT EXISTS access_keys (
         creado TEXT NOT NULL,
         user_id TEXT DEFAULT ''
       );
+
+      CREATE TABLE IF NOT EXISTS web_carpetas (
+        id TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        user_id TEXT NOT NULL DEFAULT 'global',
+        creado TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS web_accesos (
+        id TEXT PRIMARY KEY,
+        carpeta_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        nombre TEXT NOT NULL,
+        creado_por TEXT DEFAULT '',
+        creado TEXT NOT NULL
+      );
     `)
 
     // Seed del admin maestro — credenciales configurables por variables de entorno
@@ -225,18 +241,8 @@ CREATE TABLE IF NOT EXISTS access_keys (
       console.warn('[db] limpieza credenciales antiguas:', e.message)
     }
 
-    // Carpetas iniciales por defecto — solo si no existe NINGUNA carpeta todavía
-    const carpCount = await client.query('SELECT COUNT(*) FROM carpetas')
-    if (Number(carpCount.rows[0].count) === 0) {
-      for (const nombre of ['Hojas de vida', 'Contratos', 'Reportes']) {
-        await client.query(
-          `INSERT INTO carpetas (id, nombre, creado_por, fecha)
-           VALUES ($1, $2, '', $3) ON CONFLICT (nombre) DO NOTHING`,
-          [`carp-${Math.random().toString(36).slice(2, 10)}`, nombre, new Date().toISOString()],
-        )
-      }
-      console.log('[db] Carpetas iniciales creadas.')
-    }
+    // Carpetas iniciales por defecto — eliminado: el usuario gestiona sus propias carpetas
+    console.log('[db] Tablas listas. Sin carpetas por defecto.')
 
     console.log('[db] PostgreSQL conectado, tablas (persistentes) listas.')
   } finally {
