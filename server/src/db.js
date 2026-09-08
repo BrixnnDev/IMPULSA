@@ -139,6 +139,15 @@ CREATE TABLE IF NOT EXISTS access_keys (
         user_id TEXT DEFAULT ''
       );
 
+      CREATE TABLE IF NOT EXISTS mensajes (
+        id TEXT PRIMARY KEY,
+        de_user TEXT DEFAULT '',
+        para_user TEXT DEFAULT '',
+        texto TEXT DEFAULT '',
+        leido BOOLEAN NOT NULL DEFAULT FALSE,
+        fecha TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS web_carpetas (
         id TEXT PRIMARY KEY,
         nombre TEXT NOT NULL,

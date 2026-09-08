@@ -12,6 +12,7 @@ import { documentsRouter } from './documents.js'
 import { comisionesRouter } from './comisiones.js'
 import { settingsRouter } from './settings.js'
 import { webAccesosRouter } from './webaccesos.js'
+import { mensajesRouter } from './mensajes.js'
 import { initDb } from './db.js'
 
 const cfg = {
@@ -87,6 +88,7 @@ app.use('/api/documents', documentsRouter(io))
 app.use('/api/comisiones', comisionesRouter(io))
 app.use('/api/settings', settingsRouter(io))
 app.use('/api/web', webAccesosRouter(io))
+app.use('/api/mensajes', mensajesRouter(io))
 /* ============ GMAIL (OAuth2 oficial de Google) ============ */
 
 app.get('/api/gmail/status', (_req, res) =>
