@@ -94,15 +94,6 @@ export default function DigitInicio() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600/20 text-base font-black text-blue-300 ring-1 ring-blue-500/40">
-          {user?.name?.charAt(0).toUpperCase() || 'U'}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
-        </div>
-      </div>
-
       {/* Stats */}
       <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, warn }) => (
