@@ -56,11 +56,7 @@ export default function DigitHistorial() {
     cargar()
     const id = setInterval(cargar, 1000)
     return () => clearInterval(id)
-<<<<<<< HEAD
-  }, [user?.id, user?.rol])
-=======
-  }, [])
->>>>>>> d6601a277ddcd9310b67fd4f0a6322edac7d4160
+  }, [user?.id, isAdmin])
 
   const totalNum = Number(formCom.total) || 0
   const mitad = totalNum / 2
