@@ -30,6 +30,7 @@ import DigitAdminPcs from './pages/digitacion/DigitAdminPcs'
 import DigitRegistros from './pages/digitacion/DigitRegistros'
 import DigitAccesosWeb from './pages/digitacion/DigitAccesosWeb'
 import DigitCotizacion from './pages/digitacion/DigitCotizacion'
+import DigitFormatos from './pages/digitacion/DigitFormatos'
 
 export default function App() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/digitacion/registros" element={<DigitRegistros />} />
           <Route path="/digitacion/accesos-web" element={<DigitAccesosWeb />} />
           <Route path="/digitacion/cotizacion" element={<DigitCotizacion />} />
+          <Route path="/digitacion/formatos" element={<DigitFormatos />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
