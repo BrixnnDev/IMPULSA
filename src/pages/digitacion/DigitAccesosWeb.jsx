@@ -212,16 +212,23 @@ export default function DigitAccesosWeb() {
           <button
             onClick={() => { setNombreCarpeta(''); setError(''); setModalCarpeta(true) }}
             title="Crear carpeta"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-violet-600/20 hover:text-violet-300"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-violet-600/20 hover:text-violet-300"
           >
-            <FiFolder size={17} />
+            <FiFolder size={19} />
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-violet-600 text-white ring-2 ring-night-900">
+              <FiPlus size={11} />
+            </span>
           </button>
           {/* Botón agregar página */}
           <button
             onClick={abrirModalAcceso}
-            className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-500"
+            title="Agregar página"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-sky-600/20 hover:text-sky-300"
           >
-            <FiPlus size={14} /> Agregar página
+            <FiGlobe size={19} />
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-white ring-2 ring-night-900">
+              <FiPlus size={11} />
+            </span>
           </button>
         </div>
       </div>

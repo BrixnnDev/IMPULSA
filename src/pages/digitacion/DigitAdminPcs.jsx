@@ -115,8 +115,15 @@ export default function DigitAdminPcs() {
           </h2>
           <p className="mt-1 text-sm text-slate-400">Gestiona las computadoras conectadas al sistema.</p>
         </div>
-        <button onClick={() => setFormOpen(true)} className="btn-primary !px-4 !py-2.5 !text-xs">
-          <FiPlus /> Agregar PC
+        <button
+          onClick={() => setFormOpen(true)}
+          title="Agregar PC"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-blue-600/20 hover:text-blue-300"
+        >
+          <FiMonitor size={19} />
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white ring-2 ring-night-900">
+            <FiPlus size={11} />
+          </span>
         </button>
       </div>
 
@@ -164,7 +171,7 @@ export default function DigitAdminPcs() {
           )
         })}
         {pcs.length === 0 && (
-          <p className="col-span-full py-10 text-center text-sm text-slate-500">No hay PCs. Agrega una con "Agregar PC".</p>
+          <p className="col-span-full py-10 text-center text-sm text-slate-500">No hay PCs. Usa el botón + para agregar una.</p>
         )}
       </div>
 

@@ -116,8 +116,15 @@ export default function DigitRegistros() {
           <p className="mt-1 text-sm text-slate-400">Gestiona usuarios, roles y códigos de verificación.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => { setKeyRol('digitador'); setKeyOpen(true) }} className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-amber-500">
-            <FiKey /> Crear key
+          <button
+            onClick={() => { setKeyRol('digitador'); setKeyOpen(true) }}
+            title="Crear key"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-amber-600/20 hover:text-amber-300"
+          >
+            <FiKey size={19} />
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-white ring-2 ring-night-900">
+              <FiPlus size={11} />
+            </span>
           </button>
         </div>
       </div>
