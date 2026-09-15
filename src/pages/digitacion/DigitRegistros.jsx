@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
-  FiUsers, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey,
+  FiUsers, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey, FiPlus,
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
