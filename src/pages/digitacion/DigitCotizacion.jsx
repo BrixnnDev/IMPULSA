@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { FiFileText, FiPlus, FiTrash2, FiDownload, FiSave } from 'react-icons/fi'
+import { FiFileText, FiPlus, FiTrash2, FiDownload, FiSave, FiArrowLeft } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
 const ROW_INICIAL = { descripcion: '', cantidad: 1, precio: '' }
@@ -191,6 +192,13 @@ export default function DigitCotizacion() {
 
   return (
     <div className="space-y-6">
+      <Link
+        to="/digitacion/formatos"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 transition hover:text-white"
+      >
+        <FiArrowLeft size={16} /> Volver a formatos
+      </Link>
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">

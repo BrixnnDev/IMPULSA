@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FiLayers, FiPenTool, FiFileText } from 'react-icons/fi'
+import { FiLayers, FiPenTool, FiFileText, FiDollarSign } from 'react-icons/fi'
 
 const CARDS = [
   {
@@ -17,6 +17,14 @@ const CARDS = [
     desc: 'Genera cotizaciones y descarga en PDF',
     color: 'bg-sky-600/15 text-sky-400 ring-sky-500/30',
     hover: 'hover:border-sky-500/40 hover:bg-sky-600/5',
+  },
+  {
+    to: '/digitacion/factura',
+    label: 'Factura',
+    icon: FiDollarSign,
+    desc: 'Crea facturas y descarga o imprime en PDF',
+    color: 'bg-emerald-600/15 text-emerald-400 ring-emerald-500/30',
+    hover: 'hover:border-emerald-500/40 hover:bg-emerald-600/5',
   },
 ]
 

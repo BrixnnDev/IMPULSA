@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FiPenTool, FiPlus, FiCheckCircle, FiX, FiClock } from 'react-icons/fi'
+import { Link } from 'react-router-dom'
+import { FiPenTool, FiPlus, FiCheckCircle, FiX, FiClock, FiArrowLeft } from 'react-icons/fi'
 
 const TIPOS_DISENO = ['Logo / Marca', 'Flyer publicitario', 'Tarjeta de presentación', 'Certificado', 'Cartel / Afiche', 'Otro documento']
 
@@ -52,6 +53,13 @@ export default function DigitDisenos() {
 
   return (
     <div className="space-y-6">
+      <Link
+        to="/digitacion/formatos"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 transition hover:text-white"
+      >
+        <FiArrowLeft size={16} /> Volver a formatos
+      </Link>
+
       <div>
         <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
