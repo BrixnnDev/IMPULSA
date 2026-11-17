@@ -1,11 +1,8 @@
 import { useState } from 'react'
-import { DEFAULT_SERVER_URL, SERVER_CONNECTED_TEXT } from '../config'
-
 export default function PairScreen({ pairingCode, setPairingCode, onConnect, onBack }) {
   const [code, setCode] = useState(pairingCode)
 
   const handlePair = () => {
-    setServerUrl(DEFAULT_SERVER_URL)
     setPairingCode(code)
     onConnect()
   }
@@ -35,27 +32,8 @@ export default function PairScreen({ pairingCode, setPairingCode, onConnect, onB
           color: '#94A3B8',
           marginBottom: 36,
         }}>
-          Ingresa los datos del servidor para conectar
+          Ingresa tu código de emparejamiento
         </p>
-
-        <div style={{ width: '100%', maxWidth: 340, marginBottom: 24 }}>
-          <label style={{
-            display: 'block',
-            fontSize: 13,
-            color: '#94A3B8',
-            marginBottom: 8,
-            fontWeight: 500,
-          }}>
-            Servidor
-          </label>
-          <input
-            type="text"
-            className="input-field"
-            value={SERVER_CONNECTED_TEXT}
-            readOnly
-            style={{ color: '#60A5FA', fontWeight: 600 }}
-          />
-        </div>
 
         <div style={{ width: '100%', maxWidth: 340, marginBottom: 40 }}>
           <label style={{

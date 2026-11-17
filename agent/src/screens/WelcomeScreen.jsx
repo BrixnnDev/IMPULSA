@@ -112,7 +112,7 @@ export default function WelcomeScreen({ onPair }) {
           marginBottom: 40,
           animation: 'fadeInUp 0.8s ease 0.4s both',
         }}>
-          Conecta tu PC con el servidor de monitoreo
+          Conecta tu PC con tu código de emparejamiento
         </p>
 
         <button

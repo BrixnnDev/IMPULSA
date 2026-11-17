@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { apiBase, normalizeCode } from '../config'
 
 export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onError }) {
-  const [status, setStatus] = useState('Conectando al servidor...')
+  const [status, setStatus] = useState('Conectando...')
   const [phase, setPhase] = useState(0)
   const [errorMsg, setErrorMsg] = useState(null)
   const mountedRef = useRef(true)
@@ -71,7 +71,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
 
         if (!result) {
           setStatus('Codigo de emparejamiento invalido')
-          setErrorMsg('El codigo de emparejamiento no es valido o el servidor no responde.')
+          setErrorMsg('El código de emparejamiento no es válido o no se pudo conectar.')
           return
         }
 
@@ -211,7 +211,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
           gap: 12,
           animation: 'fadeIn 0.6s ease 0.4s both',
         }}>
-          {['Conectando al servidor', 'Validando codigo', 'Obteniendo perfil'].map((label, i) => (
+          {['Conectando', 'Validando código', 'Obteniendo perfil'].map((label, i) => (
             <div key={i} style={{
               display: 'flex',
               alignItems: 'center',

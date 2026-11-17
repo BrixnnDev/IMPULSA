@@ -1,4 +1,6 @@
-export const DEFAULT_SERVER_URL = 'https://impulsx.vercel.app'
+// El agente no muestra ni permite editar la URL del servidor: siempre usa
+// el backend de producción de IMPULSA de forma interna.
+export const DEFAULT_SERVER_URL = 'https://impulsa-api-v1l0.onrender.com'
 export const SERVER_DISPLAY = 'IMPULSA'
 export const SERVER_CONNECTED_TEXT = 'IMPULSA'
 
