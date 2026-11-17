@@ -24,7 +24,7 @@ import { MdConfirmationNumber } from 'react-icons/md'
 import { useAuth } from '../context/AuthContext'
 import useAvatar from '../hooks/useAvatar'
 import RocketLogo from './RocketLogo'
-import { FiDollarSign, FiPhone, FiSend, FiArrowLeft } from 'react-icons/fi'
+import { FiDollarSign, FiPhone, FiSend, FiArrowLeft, FiAlertCircle } from 'react-icons/fi'
 import { io } from 'socket.io-client'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -156,6 +156,8 @@ export default function DashboardLayout({ profile }) {
   const [compOpen, setCompOpen] = useState(false)
   const [comp, setComp] = useState({ to: '', asunto: '', texto: '' })
   const [enviadoOk, setEnviadoOk] = useState('')
+  const [avisoMantenimiento, setAvisoMantenimiento] = useState('')
+  const avisoTimer = useRef(null)
 
   // Mensajes no leídos para el punto en el sidebar
   const [noLeidosMensajes, setNoLeidosMensajes] = useState(0)
@@ -290,6 +292,19 @@ export default function DashboardLayout({ profile }) {
 
   const noLeidas = notifs.filter((n) => n.unread).length
 
+  // Digitadores y moderadores no tienen acceso a Gmail/WhatsApp: pueden hacer
+  // clic, pero se les muestra un aviso flotante de mantenimiento.
+  const comunicacionesBloqueadas = profile === 'digitacion' && !isAdmin
+
+  const mostrarAvisoMantenimiento = (nombre) => {
+    setCorreoOpen(false)
+    setWhatsOpen(false)
+    setNotifOpen(false)
+    setAvisoMantenimiento(`${nombre} deshabilitado por mantenimiento`)
+    clearTimeout(avisoTimer.current)
+    avisoTimer.current = setTimeout(() => setAvisoMantenimiento(''), 3500)
+  }
+
   const toggleNotif = () => {
     setCorreoOpen(false)
     setWhatsOpen(false)
@@ -297,6 +312,10 @@ export default function DashboardLayout({ profile }) {
   }
 
   const abrirPanel = (cual) => {
+    if (comunicacionesBloqueadas && (cual === 'correo' || cual === 'whats')) {
+      mostrarAvisoMantenimiento(cual === 'correo' ? 'Correo' : 'WhatsApp')
+      return
+    }
     setNotifOpen(false)
     setEmailAbierto(null)
     setChatActivo(null)
@@ -597,17 +616,25 @@ export default function DashboardLayout({ profile }) {
             </button>
             <button
               onClick={() => abrirPanel('correo')}
-              title="Correo"
+              title={comunicacionesBloqueadas ? 'Correo deshabilitado por mantenimiento' : 'Correo'}
               aria-label="Correo"
-              className="rounded-xl p-2.5 text-slate-300 transition hover:bg-white/5 hover:text-white"
+              className={`rounded-xl p-2.5 transition ${
+                comunicacionesBloqueadas
+                  ? 'text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-400'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
             >
               <FiMail size={18} />
             </button>
             <button
               onClick={() => abrirPanel('whats')}
-              title="WhatsApp"
+              title={comunicacionesBloqueadas ? 'WhatsApp deshabilitado por mantenimiento' : 'WhatsApp'}
               aria-label="WhatsApp"
-              className="rounded-xl p-2.5 text-slate-300 transition hover:bg-green-500/10 hover:text-green-400"
+              className={`rounded-xl p-2.5 transition ${
+                comunicacionesBloqueadas
+                  ? 'text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-400'
+                  : 'text-slate-300 hover:bg-green-500/10 hover:text-green-400'
+              }`}
             >
               <FaWhatsapp size={19} />
             </button>
@@ -1056,6 +1083,26 @@ export default function DashboardLayout({ profile }) {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Aviso flotante: módulos en mantenimiento */}
+      {avisoMantenimiento && (
+        <div className="fixed bottom-6 right-6 z-[100] flex max-w-sm items-center gap-3 rounded-2xl border border-amber-500/30 bg-night-850 px-4 py-3 shadow-2xl shadow-black/50">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+            <FiAlertCircle size={20} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">Módulo en mantenimiento</p>
+            <p className="text-xs text-slate-400">{avisoMantenimiento}</p>
+          </div>
+          <button
+            onClick={() => setAvisoMantenimiento('')}
+            aria-label="Cerrar aviso"
+            className="ml-2 text-slate-500 transition hover:text-white"
+          >
+            <FiX size={16} />
+          </button>
         </div>
       )}
     </div>
