@@ -30,12 +30,11 @@ import { io } from 'socket.io-client'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 const EMAIL_COLORS = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500']
 
-const SEED_NOTIFS = [
-  { id: 1, titulo: 'Impresión completada', desc: 'HV-1023 · Carlos Andrés Peña', hora: 'Hace 5 min', unread: true, color: 'bg-blue-600/15 text-blue-400', icon: null },
-  { id: 2, titulo: 'Nuevo documento firmado', desc: 'Contrato alquiler local · DOC-0521', hora: 'Hace 20 min', unread: true, color: 'bg-emerald-500/15 text-emerald-400', icon: null },
-  { id: 3, titulo: 'Pago recibido', desc: 'Valecito IMP-2041 · Turno 1', hora: 'Hace 1 h', unread: true, color: 'bg-amber-500/15 text-amber-400', icon: null },
-  { id: 4, titulo: 'Recordatorio', desc: 'Imprimir HV de Camila Torres — 3 copias', hora: '8:00 a. m.', unread: false, color: 'bg-violet-500/15 text-violet-400', icon: null },
-]
+const SEED_NOTIFS = []
+
+const SEED_EMAILS = []
+
+const SEED_CHATS = []
 
 const SEED_EMAILS = [
   {
@@ -795,7 +794,7 @@ export default function DashboardLayout({ profile }) {
               </dl>
             </div>
 
-            {!isModerador && (
+            {!isModerador && !isAdmin && (
             <div className="border-t border-white/5 pt-4">
               <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                 <FiDollarSign size={13} className="text-emerald-400" /> Mis ganancias · COP
