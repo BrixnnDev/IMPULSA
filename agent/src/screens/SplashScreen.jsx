@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { DEFAULT_SERVER_URL, SERVER_CONNECTED_TEXT } from '../config'
+import { DEFAULT_SERVER_URL, apiBase } from '../config'
 
 export default function SplashScreen({ onComplete, onAutoPaired }) {
   const [phase, setPhase] = useState(0)
@@ -32,15 +32,12 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
     return () => timers.forEach(t => { clearInterval(t); clearTimeout(t) })
   }, [])
 
-  const savedRef = useRef(null)
-
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
         const saved = await invoke('load_state')
         if (saved && !cancelled) {
-          savedRef.current = saved
           setSavedSession(saved)
         }
       } catch {}
@@ -81,10 +78,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
   }, [])
 
   const code = codeDigits.join('')
-  const handlePairClick = () => {
-    setPairState('loading')
-    setTimeout(() => setPairState('form'), 1500)
-  }
+  const handlePairClick = () => setPairState('form')
   const handleSubmit = () => onComplete(serverUrl, code)
 
   const autoPairedRef = useRef(false)
@@ -92,15 +86,14 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
   useEffect(() => {
     if (phase < 4) return
     if (autoPairedRef.current) return
-    const saved = savedRef.current
-    if (!saved) return
+    if (!savedSession) return
 
     let cancelled = false
     ;(async () => {
       try {
-        const srv = DEFAULT_SERVER_URL
+        const srv = apiBase(savedSession.server_url || DEFAULT_SERVER_URL)
         setServerUrl(srv)
-        const resp = await fetch(`${srv}/api/pc/detail?code=${encodeURIComponent(saved.pairing_code)}`)
+        const resp = await fetch(`${srv}/api/pc/detail?code=${encodeURIComponent(savedSession.pairing_code)}`)
         if (!resp.ok) {
           await invoke('clear_state').catch(() => {})
           if (!cancelled) setPairState('idle')
@@ -113,13 +106,13 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
         try {
           sysInfo = await invoke('get_system_info')
         } catch {}
-        const pcName = saved.pc_name || data.pc.etiqueta || 'PC'
+        const pcName = savedSession.pc_name || data.pc.etiqueta || 'PC'
         try {
           await fetch(`${srv}/api/pc/report-system`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              code: saved.pairing_code,
+              code: savedSession.pairing_code,
               pc_name: pcName,
               ip: sysInfo?.local_ip,
               mac: sysInfo?.mac_address,
@@ -134,7 +127,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
           ip: data.pc?.ip || sysInfo?.local_ip,
           mac: data.pc?.mac || sysInfo?.mac_address,
           so: data.pc?.sistema || sysInfo?.os_version,
-          pairingCode: saved.pairing_code,
+          pairingCode: savedSession.pairing_code,
           serverUrl: srv,
           status: 'Conectada',
           userInfo: data.pc?.responsable ? { name: data.pc.responsable, email: data.pc.email, role: data.pc.rol } : null,
@@ -145,7 +138,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
     })()
 
     return () => { cancelled = true }
-  }, [phase, onAutoPaired])
+  }, [phase, savedSession, onAutoPaired])
 
   return (
     <div className="screen splash-root">
@@ -181,19 +174,8 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
                 </div>
               )}
 
-              {pairState === 'loading' && (
-                <div className="splash-pair-loading">
-                  <div className="splash-spinner" />
-                  <span>Conectando...</span>
-                </div>
-              )}
-
               {pairState === 'form' && (
                 <div className="splash-pair-form">
-                  <div className="splash-pair-field">
-                    <label>Servidor</label>
-                    <input className="input-field" value={SERVER_CONNECTED_TEXT} readOnly style={{ color: '#60A5FA', fontWeight: 600 }} />
-                  </div>
                   <div className="splash-pair-field">
                     <label>Codigo de Emparejamiento</label>
                     <div className="splash-otp-row" onPaste={handleDigitPaste}>
@@ -202,6 +184,7 @@ export default function SplashScreen({ onComplete, onAutoPaired }) {
                           key={i}
                           ref={el => { inputRefs.current[i] = el }}
                           className="splash-otp-input"
+                          style={{ animationDelay: `${i * 0.06}s` }}
                           type="text"
                           inputMode="text"
                           maxLength={1}

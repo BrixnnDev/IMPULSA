@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import { FiFileText, FiSearch, FiDownload, FiEye, FiLoader } from 'react-icons/fi'
 import RocketLogo from '../../components/RocketLogo'
@@ -70,8 +70,8 @@ export default function DigitEscaneos() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-              <FiFileText size={20} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+              <FiFileText size={16} />
             </span>
             Historial de escáner
           </h2>
@@ -85,7 +85,7 @@ export default function DigitEscaneos() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o archivo…"
-            className="input-field !pl-11"
+            className="input-field !pl-11 input-upper"
           />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiPenTool, FiPlus, FiCheckCircle, FiX, FiClock, FiArrowLeft } from 'react-icons/fi'
 
@@ -62,8 +62,8 @@ export default function DigitDisenos() {
 
       <div>
         <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-            <FiPenTool size={20} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+            <FiPenTool size={16} />
           </span>
           Diseños
         </h2>
@@ -83,7 +83,7 @@ export default function DigitDisenos() {
         {/* Formulario */}
         <form onSubmit={agregar} className="panel h-fit space-y-4 p-6 xl:sticky xl:top-24">
           <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/40 bg-blue-600/15 text-blue-400">
               <FiPenTool size={18} />
             </span>
             <h3 className="font-bold text-white">Nuevo diseño o documento</h3>

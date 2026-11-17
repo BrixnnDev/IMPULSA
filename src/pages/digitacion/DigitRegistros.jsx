@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
-  FiUsers, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey, FiPlus,
+  FiUsers, FiX, FiCopy, FiShield, FiCheckCircle, FiClock, FiTrash2, FiKey, FiPlus, FiUserCheck,
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
@@ -10,7 +10,8 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 const ROLES = [
   { value: 'digitador', label: 'Digitación' },
   { value: 'pos', label: 'POS' },
-  { value: 'admin', label: 'Admin' },
+  { value: 'moderador', label: 'Moderador' },
+  { value: 'admin', label: 'Administrador' },
 ]
 
 export default function DigitRegistros() {
@@ -110,7 +111,7 @@ export default function DigitRegistros() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30"><FiUsers size={20} /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400"><FiUsers size={16} /></span>
             Registros de usuarios
           </h2>
           <p className="mt-1 text-sm text-slate-400">Gestiona usuarios, roles y códigos de verificación.</p>
@@ -161,6 +162,7 @@ export default function DigitRegistros() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-night-800/60 text-[11px] uppercase tracking-wider text-slate-400">
+                <th className="px-5 py-3.5 font-semibold">ID</th>
                 <th className="px-5 py-3.5 font-semibold">Usuario</th>
                 <th className="px-5 py-3.5 font-semibold">Estado</th>
                 <th className="px-5 py-3.5 font-semibold">Código verificación</th>
@@ -174,12 +176,17 @@ export default function DigitRegistros() {
               {users.map((u) => (
                 <tr key={u.id} className="transition hover:bg-white/[0.02]">
                   <td className="px-5 py-3.5">
+                    <code className="rounded-lg bg-black/30 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">
+                      {u.short_id || u.id.replace(/^u-/, '').slice(0, 8).toUpperCase()}
+                    </code>
+                  </td>
+                  <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600/15 text-xs font-bold text-blue-300 ring-1 ring-blue-500/30">
-                        {u.name.charAt(0).toUpperCase()}
+                        {(u.name || u.email).charAt(0).toUpperCase()}
                       </span>
                       <div>
-                        <p className="font-semibold text-white">{u.name} {u.id === 'u-admin' && <span className="ml-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300 ring-1 ring-violet-500/30">MASTER</span>}</p>
+                        <p className="font-semibold text-white">{u.name || u.email} {u.id === 'u-admin' && <span className="ml-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300 ring-1 ring-violet-500/30">MASTER</span>}</p>
                         <p className="text-xs text-slate-500">{u.email}</p>
                       </div>
                     </div>
@@ -192,30 +199,24 @@ export default function DigitRegistros() {
                     )}
                   </td>
                   <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{u.codigo || '—'}</code>
-                      {u.codigo && (
-                        <button onClick={() => copiar(u.codigo, u.id)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={14} /></button>
-                      )}
-                      {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
                     {u.key_codigo ? (
                       <div className="flex items-center gap-2">
-                        <code className="rounded-lg bg-emerald-500/10 px-3 py-1.5 font-mono text-xs font-bold tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">{u.key_codigo}</code>
-                        <button onClick={() => copiar(u.key_codigo, `kc-${u.id}`)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar key"><FiCopy size={14} /></button>
-                        {copiado === `kc-${u.id}` && <span className="text-[10px] text-emerald-400">Copiado</span>}
+                        <code className="rounded-lg bg-black/30 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-amber-400 ring-1 ring-amber-500/25">{u.key_codigo}</code>
+                        <button onClick={() => copiar(u.key_codigo, u.id)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Copiar código"><FiCopy size={14} /></button>
+                        {copiado === u.id && <span className="text-[10px] text-emerald-400">Copiado</span>}
                       </div>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
-                        <span className="text-slate-400">{(u.keys_total || 0)} en total</span>
-                        <span className="text-slate-600">·</span>
-                        <span className={(u.keys_activas || 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}>
-                          {(u.keys_activas || 0)} disponibles
-                        </span>
-                      </span>
+                      <span className="text-xs text-slate-600">—</span>
                     )}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                      <span className="text-slate-400">{(u.keys_total || 0)} en total</span>
+                      <span className="text-slate-600">·</span>
+                      <span className={(u.keys_activas || 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}>
+                        {(u.keys_activas || 0)} disponibles
+                      </span>
+                    </span>
                   </td>
                   <td className="px-5 py-3.5">
                     {u.id === 'u-admin' ? (
@@ -252,14 +253,14 @@ export default function DigitRegistros() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setKeyOpen(false)}>
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey size={18} /></span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-400"><FiKey size={18} /></span>
               <div><h3 className="font-bold text-white">Crear key de acceso</h3><p className="text-xs text-slate-400">Se generará una key de 6 dígitos con el rol elegido.</p></div>
               <button onClick={() => setKeyOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
 
             <div>
               <label className="label-form">Rol de la key</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {ROLES.map((r) => (
                   <button
                     key={r.value}
@@ -271,7 +272,7 @@ export default function DigitRegistros() {
                         : 'border-white/10 bg-night-800 text-slate-400 hover:bg-white/5'
                     }`}
                   >
-                    {r.value === 'digitador' ? <FiUsers size={13} /> : r.value === 'pos' ? <FiKey size={13} /> : <FiShield size={13} />}
+                    {r.value === 'digitador' ? <FiUsers size={13} /> : r.value === 'pos' ? <FiKey size={13} /> : r.value === 'moderador' ? <FiUserCheck size={13} /> : <FiShield size={13} />}
                     {r.label}
                   </button>
                 ))}
@@ -291,7 +292,7 @@ export default function DigitRegistros() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setNuevaKey(null)}>
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiKey size={18} /></span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"><FiKey size={18} /></span>
               <div><h3 className="font-bold text-white">Key generada</h3><p className="text-xs text-slate-400">Entrégasela al nuevo usuario.</p></div>
               <button onClick={() => setNuevaKey(null)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
@@ -316,7 +317,7 @@ export default function DigitRegistros() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setKeysOpen(false)}>
           <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiKey size={18} /></span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-400"><FiKey size={18} /></span>
               <div>
                 <h3 className="font-bold text-white">Keys de acceso</h3>
                 <p className="text-xs text-slate-400">{keys.length} en total · {keys.filter((k) => !k.usado).length} disponibles</p>

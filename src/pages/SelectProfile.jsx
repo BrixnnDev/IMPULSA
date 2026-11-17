@@ -37,6 +37,7 @@ export default function SelectProfile() {
   const choose = (key) => {
     if (!canChoose(key)) return
     setProfile(key)
+    if (rol === 'moderador') return navigate('/digitacion/historial')
     navigate(key === 'pos' ? '/pos' : '/digitacion')
   }
 

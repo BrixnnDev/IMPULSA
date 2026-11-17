@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { FiKey, FiAlertCircle, FiArrowLeft, FiShield, FiCheckCircle } from 'react-icons/fi'
 import { useAuth } from '../context/AuthContext'
+import CodigoInput from '../components/CodigoInput'
 
 export default function VerifyPage() {
   const { user, verificar, logout } = useAuth()
@@ -32,8 +33,8 @@ export default function VerifyPage() {
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40"><FiShield size={22} /></span>
           <div>
-            <h1 className="text-xl font-bold text-white">Cuenta sin verificar</h1>
-            <p className="mt-0.5 text-sm text-slate-400">{user.name} — ingresa tu código.</p>
+            <h1 className="text-xl font-bold text-white">Verifica tu cuenta</h1>
+            <p className="mt-0.5 text-sm text-slate-400">Ingresa el código que te dio el administrador.</p>
           </div>
         </div>
 
@@ -46,16 +47,12 @@ export default function VerifyPage() {
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
             <label className="label-form">Código de verificación</label>
-            <input
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="Código de 6 dígitos"
-              className="input-field text-center font-mono text-xl tracking-[0.3em]"
-              maxLength={6}
-              autoFocus
-            />
+            <div className="mt-1">
+              <CodigoInput value={codigo} onChange={setCodigo} />
+            </div>
           </div>
-          <button type="submit" className="btn-primary w-full py-3">
+
+          <button type="submit" className="btn-primary !mt-6 w-full py-3">
             <FiKey /> Verificar
           </button>
         </form>

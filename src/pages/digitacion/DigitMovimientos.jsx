@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
   FiPrinter, FiFolder, FiCheckCircle, FiClock, FiFileText, FiSearch, FiX,
@@ -86,7 +86,7 @@ export default function DigitMovimientos() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30"><FiPrinter size={20} /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400"><FiPrinter size={16} /></span>
             Historial de impresión
           </h2>
           <p className="mt-1 text-sm text-slate-400">{isAdmin ? 'Selecciona una carpeta para ver las impresiones.' : 'Selecciona una carpeta para ver tus impresiones.'}</p>
@@ -94,7 +94,7 @@ export default function DigitMovimientos() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-full min-w-[200px] sm:w-64">
             <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre..." className="input-field !pl-11" />
+            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre..." className="input-field !pl-11 input-upper" />
           </div>
           <button onClick={() => setModal({ titulo: isAdmin ? 'Historial de impresiones' : 'Mis impresiones', datos: visibles })} className="btn-primary !px-4 !py-2.5 !text-xs"><FiList /> Historial</button>
         </div>

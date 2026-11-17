@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import {
   FiFileText,
   FiPrinter,
@@ -67,7 +67,7 @@ export default function DigitInicio() {
     { label: 'Trabajos hoy', value: comisiones.length, icon: FiFileText },
     { label: 'Por cobrar', value: porCobrar, icon: FiPrinter, warn: true },
     { label: 'Trabajos pagados', value: pagados, icon: FiCheckSquare },
-    { label: 'Ganado', value: `S/ ${totalGanado.toFixed(2)}`, icon: FiDollarSign, money: true },
+    { label: 'Ganado', value: new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(totalGanado), icon: FiDollarSign, money: true },
   ]
 
   const recientes = [...comisiones]

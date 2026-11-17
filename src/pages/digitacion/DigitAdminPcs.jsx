@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { io } from 'socket.io-client'
 import { FiMonitor, FiPlus, FiTrash2, FiWifi, FiWifiOff, FiCopy, FiX, FiCheckCircle } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
@@ -108,8 +108,8 @@ export default function DigitAdminPcs() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-              <FiMonitor size={20} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+              <FiMonitor size={16} />
             </span>
             Administrar PCs
           </h2>
@@ -180,7 +180,7 @@ export default function DigitAdminPcs() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setFormOpen(false)}>
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40"><FiMonitor size={18} /></span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/40 bg-blue-600/15 text-blue-400"><FiMonitor size={18} /></span>
               <div><h3 className="font-bold text-white">Agregar PC</h3><p className="text-xs text-slate-400">Ingresa el nombre de la persona o computadora.</p></div>
               <button onClick={() => setFormOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
@@ -201,7 +201,7 @@ export default function DigitAdminPcs() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"><FiMonitor size={18} /></span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"><FiMonitor size={18} /></span>
               <div><h3 className="font-bold text-white">{codigoModal.etiqueta}</h3><p className="text-xs text-slate-400">{fase === 'conectada' ? 'Conectada' : fase === 'conectando' ? 'Conectando...' : fase === 'info' ? 'Información' : 'Emparejar PC'}</p></div>
             </div>
 

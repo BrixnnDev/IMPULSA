@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import './App.css'
 import SplashScreen from './screens/SplashScreen'
 import ConnectingScreen from './screens/ConnectingScreen'
 import ConnectedScreen from './screens/ConnectedScreen'
 import TitleBar from './components/TitleBar'
 import { invoke } from '@tauri-apps/api/core'
-import { io } from 'socket.io-client'
 import { DEFAULT_SERVER_URL } from './config'
 
 function App() {
@@ -13,26 +12,6 @@ function App() {
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL)
   const [pairingCode, setPairingCode] = useState('')
   const [pcInfo, setPcInfo] = useState(null)
-  const socketRef = useRef(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const s = io(serverUrl, { transports: ['websocket', 'polling'], reconnection: true })
-    socketRef.current = s
-    s.on('pc:removed', async (d) => {
-      if (cancelled) return
-      try {
-        const saved = await invoke('load_state')
-        if (saved && d?.codigo && saved.pairing_code === d.codigo) {
-          await invoke('clear_state').catch(() => {})
-          setPcInfo(null)
-          setPairingCode('')
-          setCurrentScreen('splash')
-        }
-      } catch {}
-    })
-    return () => { cancelled = true; s.disconnect() }
-  }, [serverUrl])
 
   const handleSplashComplete = useCallback((url, code) => {
     setServerUrl(url)
@@ -55,7 +34,17 @@ function App() {
     setCurrentScreen('connected')
   }, [])
 
-  const handleDisconnect = useCallback(() => {
+  const handleRemoved = useCallback(() => {
+    setPcInfo(null)
+    setPairingCode('')
+    setCurrentScreen('splash')
+  }, [])
+
+  const handleDisconnect = useCallback(async () => {
+    await invoke('clear_state').catch(() => {})
+    await invoke('remove_startup_script').catch(() => {})
+    setPcInfo(null)
+    setPairingCode('')
     setCurrentScreen('splash')
   }, [])
 
@@ -78,6 +67,7 @@ function App() {
             pcInfo={pcInfo}
             serverUrl={serverUrl}
             onDisconnect={handleDisconnect}
+            onRemoved={handleRemoved}
           />
         )
       default:

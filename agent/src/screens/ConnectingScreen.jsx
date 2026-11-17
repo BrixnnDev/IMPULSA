@@ -1,17 +1,20 @@
 import { useEffect, useState, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { apiBase, normalizeCode } from '../config'
 
 export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onError }) {
   const [status, setStatus] = useState('Conectando al servidor...')
   const [phase, setPhase] = useState(0)
+  const [errorMsg, setErrorMsg] = useState(null)
   const mountedRef = useRef(true)
+  const base = apiBase(serverUrl)
 
   useEffect(() => {
     mountedRef.current = true
-    let timeout
 
     const connect = async () => {
       try {
+        setErrorMsg(null)
         setPhase(1)
         await new Promise(r => setTimeout(r, 800))
         if (!mountedRef.current) return
@@ -23,18 +26,18 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
         setStatus('Obteniendo info del sistema...')
 
         // Normalizar código: quitar guiones para el servidor
-        const cleanCode = pairingCode.replace(/-/g, '')
+        const cleanCode = normalizeCode(pairingCode)
 
-        let sysInfo = null
+        let sysInfo
         try {
           sysInfo = await invoke('get_system_info')
         } catch {
-          sysInfo = {
-            computer_name: `PC-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-            local_ip: '192.168.1.' + Math.floor(Math.random() * 254 + 1),
-            mac_address: 'AA:BB:CC:DD:' + Math.floor(Math.random() * 99 + 1).toString().padStart(2, '0') + ':FF',
-            os_version: 'Windows',
-          }
+          sysInfo = null
+        }
+        if (!sysInfo) {
+          setStatus('No se pudo obtener la informacion del sistema')
+          setErrorMsg('No se pudo leer la informacion del sistema. Cierra y vuelve a abrir el agente.')
+          return
         }
 
         if (!mountedRef.current) return
@@ -43,7 +46,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
         let result = null
         let userInfo = null
         try {
-          const resp = await fetch(`${serverUrl}/api/pc/report-system`, {
+          const resp = await fetch(`${base}/api/pc/report-system`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -68,7 +71,8 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
 
         if (!result) {
           setStatus('Codigo de emparejamiento invalido')
-          throw new Error('Codigo invalido')
+          setErrorMsg('El codigo de emparejamiento no es valido o el servidor no responde.')
+          return
         }
 
         setPhase(3)
@@ -78,10 +82,18 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
 
         try {
           await invoke('save_state', {
-            serverUrl,
+            serverUrl: base,
             pairingCode,
             pcName: sysInfo.computer_name,
           })
+        } catch {}
+
+        try {
+          await invoke('install_startup_script', {
+            serverUrl: base,
+            pairingCode,
+            pcName: sysInfo.computer_name,
+          }).catch(() => {})
         } catch {}
 
         onPaired({
@@ -90,15 +102,13 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
           mac: sysInfo.mac_address,
           so: sysInfo.os_version,
           pairingCode,
-          serverUrl,
+          serverUrl: base,
           status: 'Conectada',
           userInfo,
         })
       } catch {
         if (!mountedRef.current) return
-        timeout = setTimeout(() => {
-          onError()
-        }, 1500)
+        setErrorMsg('Ocurrio un error inesperado durante el emparejamiento.')
       }
     }
 
@@ -106,9 +116,8 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
 
     return () => {
       mountedRef.current = false
-      if (timeout) clearTimeout(timeout)
     }
-  }, [serverUrl, pairingCode, onPaired, onError])
+  }, [base, pairingCode, onPaired, onError])
 
   return (
     <div className="screen">
@@ -171,7 +180,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
           letterSpacing: -0.5,
           animation: 'fadeIn 0.6s ease',
         }}>
-          Emparejando...
+          {errorMsg ? 'Emparejamiento fallido' : 'Emparejando...'}
         </h2>
 
         <div style={{
@@ -181,8 +190,8 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
           marginBottom: 24,
           animation: 'fadeIn 0.6s ease 0.2s both',
         }}>
-          <span style={{ color: '#94A3B8', fontSize: 15 }}>{status}</span>
-          {phase < 3 && (
+          <span style={{ color: errorMsg ? '#F87171' : '#94A3B8', fontSize: 15 }}>{errorMsg || status}</span>
+          {!errorMsg && phase < 3 && (
             <div className="loading-dots" style={{ display: 'inline-flex', marginLeft: 4 }}>
               <span />
               <span />
@@ -191,6 +200,11 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
           )}
         </div>
 
+        {errorMsg ? (
+          <button className="splash-pair-btn" onClick={onError} style={{ maxWidth: 220 }}>
+            Volver
+          </button>
+        ) : (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -228,6 +242,7 @@ export default function ConnectingScreen({ serverUrl, pairingCode, onPaired, onE
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   )

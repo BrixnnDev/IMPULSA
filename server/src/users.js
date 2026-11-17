@@ -12,13 +12,22 @@ function generarCodigo() {
   return code
 }
 
-// Crea la carpeta personal del usuario en la sección Documentos (si no existe).
+// Crea la carpeta personal del usuario dentro de la carpeta raíz "Usuarios"
+// de la sección Documentos (si no existe).
 async function crearCarpetaUsuario(nombre) {
   const nombreCarpeta = (nombre || '').trim() || 'Usuario'
+  // Asegura que exista la carpeta raíz "Usuarios".
+  const existeRaiz = await pool.query(`SELECT 1 FROM carpetas WHERE nombre = 'Usuarios'`)
+  if (!existeRaiz.rowCount) {
+    await pool.query(
+      `INSERT INTO carpetas (id, nombre, padre, creado_por, fecha) VALUES ($1,'Usuarios','','',$2)`,
+      [`carp-usuarios`, new Date().toISOString()],
+    )
+  }
   const exist = await pool.query('SELECT 1 FROM carpetas WHERE nombre=$1', [nombreCarpeta])
   if (!exist.rowCount) {
     await pool.query(
-      `INSERT INTO carpetas (id, nombre, creado_por, fecha) VALUES ($1,$2,$3,$4)`,
+      `INSERT INTO carpetas (id, nombre, padre, creado_por, fecha) VALUES ($1,$2,'Usuarios',$3,$4)`,
       [`carp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, nombreCarpeta, '', new Date().toISOString()],
     )
   }
@@ -27,7 +36,10 @@ async function crearCarpetaUsuario(nombre) {
 function publicUser(u) {
   return {
     id: u.id,
+    short_id: u.short_id || '',
     name: u.name,
+    apellido: u.apellido || '',
+    cedula: u.cedula || '',
     email: u.email,
     telefono: u.telefono,
     rol: u.rol,
@@ -42,31 +54,34 @@ function publicUser(u) {
 export function usersRouter(io) {
   const r = Router()
 
-  // Registro de usuario (rol por defecto digitador, sin verificar)
+  // Registro de usuario: solo correo y contraseña. El nombre, apellido, cédula y
+  // celular se capturan después en la burbuja de perfil del dashboard.
   r.post('/register', async (req, res) => {
     try {
-      const { name, email, password, telefono } = req.body
-      if (!name?.trim() || !email?.trim() || !password) {
+      const { email, password } = req.body
+      if (!email?.trim() || !password) {
         return res.status(400).json({ ok: false, error: 'Faltan campos obligatorios.' })
+      }
+      if (String(password).length < 6) {
+        return res.status(400).json({ ok: false, error: 'La contraseña debe tener al menos 6 caracteres.' })
       }
       const exist = await pool.query('SELECT 1 FROM users WHERE email = $1', [email.trim().toLowerCase()])
       if (exist.rowCount) return res.status(409).json({ ok: false, error: 'Este correo ya está registrado.' })
 
-      const codigo = generarCodigo()
       const id = `u-${Date.now().toString(36)}`
+      const shortId = String(Math.floor(10000000 + Math.random() * 90000000))
       const creado = new Date().toISOString()
       await pool.query(
-        `INSERT INTO users (id, name, email, password, telefono, rol, verificado, codigo, creado)
-         VALUES ($1,$2,$3,$4,$5,'digitador',FALSE,$6,$7)`,
-        [id, name.trim(), email.trim().toLowerCase(), password, telefono || '', codigo, creado],
+        `INSERT INTO users (id, name, apellido, cedula, email, password, telefono, rol, verificado, codigo, creado, short_id)
+         VALUES ($1,'','','',$2,$3,'','digitador',FALSE,'',$4,$5)`,
+        [id, email.trim().toLowerCase(), password, creado, shortId],
       )
       const user = {
-        id, name: name.trim(), email: email.trim().toLowerCase(), telefono: telefono || '',
-        rol: 'digitador', verificado: false, codigo, creado, verificado_en: null,
+        id, short_id: shortId, name: '', apellido: '', cedula: '', email: email.trim().toLowerCase(), telefono: '',
+        rol: 'digitador', verificado: false, codigo: '', creado, verificado_en: null,
       }
-      await crearCarpetaUsuario(user.name)
-      console.log(`[users] Registro: ${user.email} → código: ${codigo}`)
-      io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo, rol: user.rol })
+      console.log(`[users] Registro: ${user.email} (pendiente de código del admin)`)
+      io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo: '', rol: user.rol })
       return res.json({ ok: true, user: publicUser(user) })
     } catch (e) {
       console.error('[users] register:', e.message)
@@ -91,7 +106,10 @@ export function usersRouter(io) {
     }
   })
 
-  // Verificación con código
+  // Verificación con el código (key) que genera el admin.
+  // Solo valida el código: el código del admin trae el rol asignado. Los datos
+  // del perfil (nombre, apellido, cédula, celular) se completan después en la
+  // burbuja del dashboard.
   r.post('/verify', async (req, res) => {
     try {
       const { email, codigo } = req.body
@@ -102,33 +120,25 @@ export function usersRouter(io) {
       if (!found) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
       if (found.verificado) return res.json({ ok: true, user: publicUser(found), yaVerificado: true })
 
-      const verificadoEn = new Date().toISOString()
-
-      // 1) La key es una KEY DE INVITACIÓN del admin con rol asignado
+      // El código debe ser una KEY DE INVITACIÓN del admin, sin usar, con rol asignado.
       const kq = await pool.query('SELECT * FROM keys WHERE codigo = $1 AND usado = FALSE', [code])
       const key = kq.rows[0]
-      if (key) {
-        await pool.query(
-          'UPDATE users SET verificado = TRUE, verificado_en = $1, rol = $2 WHERE id = $3',
-          [verificadoEn, key.rol, found.id],
-        )
-        await pool.query('UPDATE keys SET usado = TRUE, user_id = $1 WHERE id = $2', [found.id, key.id])
-        found.verificado = true
-        found.verificado_en = verificadoEn
-        found.rol = key.rol
-        console.log(`[users] Verificado con key (${key.rol}): ${found.email}`)
-        io.emit('user:verificado', { id: found.id, name: found.name, email: found.email, rol: found.rol })
-        return res.json({ ok: true, user: publicUser(found) })
+      if (!key) {
+        return res.status(400).json({ ok: false, error: 'Código inválido o ya utilizado. Pídele uno nuevo al administrador.' })
       }
 
-      // 2) Si no, la key es el CÓDIGO propio generado al registrarse
-      if (String(found.codigo).toUpperCase() !== code) {
-        return res.status(400).json({ ok: false, error: 'Código incorrecto.' })
-      }
-      await pool.query('UPDATE users SET verificado = TRUE, verificado_en = $1 WHERE id = $2', [verificadoEn, found.id])
+      const verificadoEn = new Date().toISOString()
+      await pool.query(
+        'UPDATE users SET verificado = TRUE, verificado_en = $1, rol = $2 WHERE id = $3',
+        [verificadoEn, key.rol, found.id],
+      )
+      await pool.query('UPDATE keys SET usado = TRUE, user_id = $1 WHERE id = $2', [found.id, key.id])
+
       found.verificado = true
       found.verificado_en = verificadoEn
-      console.log(`[users] Verificado: ${found.email} (${found.rol})`)
+      found.rol = key.rol
+
+      console.log(`[users] Verificado con key (${key.rol}): ${found.email}`)
       io.emit('user:verificado', { id: found.id, name: found.name, email: found.email, rol: found.rol })
       return res.json({ ok: true, user: publicUser(found) })
     } catch (e) {
@@ -211,7 +221,7 @@ export function usersRouter(io) {
   r.patch('/:id/rol', async (req, res) => {
     try {
       const { rol } = req.body
-      if (!['admin', 'digitador', 'pos'].includes(rol)) return res.status(400).json({ ok: false, error: 'Rol no válido.' })
+      if (!['admin', 'digitador', 'pos', 'moderador'].includes(rol)) return res.status(400).json({ ok: false, error: 'Rol no válido.' })
       const q = await pool.query('UPDATE users SET rol = $1 WHERE id = $2 RETURNING *', [rol, req.params.id])
       const found = q.rows[0]
       if (!found) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
@@ -223,13 +233,15 @@ export function usersRouter(io) {
     }
   })
 
-  // Actualizar perfil (nombre, telefono, avatar)
+  // Actualizar perfil (nombre, apellido, cedula, telefono, avatar)
   r.patch('/:id', async (req, res) => {
     try {
-      const { name, telefono, avatar_url } = req.body
+      const { name, apellido, cedula, telefono, avatar_url } = req.body
       const fields = []
       const vals = []
       if (name?.trim()) { fields.push(`name = $${fields.length + 1}`); vals.push(name.trim()) }
+      if (apellido !== undefined) { fields.push(`apellido = $${fields.length + 1}`); vals.push(apellido) }
+      if (cedula !== undefined) { fields.push(`cedula = $${fields.length + 1}`); vals.push(cedula) }
       if (telefono !== undefined) { fields.push(`telefono = $${fields.length + 1}`); vals.push(telefono) }
       if (avatar_url !== undefined) { fields.push(`avatar_url = $${fields.length + 1}`); vals.push(avatar_url) }
       if (!fields.length) return res.status(400).json({ ok: false, error: 'Sin cambios.' })
@@ -237,6 +249,8 @@ export function usersRouter(io) {
       const q = await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${vals.length} RETURNING *`, vals)
       const found = q.rows[0]
       if (!found) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
+      // Al completar el perfil, crear la carpeta personal del usuario (si no existe).
+      if (name?.trim()) await crearCarpetaUsuario(found.name)
       res.json({ ok: true, user: publicUser(found) })
     } catch (e) {
       console.error('[users] patch:', e.message)
@@ -267,13 +281,15 @@ export function usersRouter(io) {
       if (exist.rowCount) return res.status(409).json({ ok: false, error: 'Ese correo ya existe.' })
       const codigo = generarCodigo()
       const id = `u-${Date.now().toString(36)}`
+      const shortId = String(Math.floor(10000000 + Math.random() * 90000000))
       const creado = new Date().toISOString()
+      const rolFinal = ['admin', 'digitador', 'pos', 'moderador'].includes(rol) ? rol : 'digitador'
       await pool.query(
-        `INSERT INTO users (id, name, email, password, telefono, rol, verificado, codigo, creado)
-         VALUES ($1,$2,$3,$4,'','',FALSE,$5,$6)`,
-        [id, name.trim(), email.trim().toLowerCase(), password || '123456', codigo, creado],
+        `INSERT INTO users (id, name, email, password, telefono, rol, verificado, codigo, creado, short_id)
+         VALUES ($1,$2,$3,$4,'',$5,FALSE,$6,$7,$8)`,
+        [id, name.trim(), email.trim().toLowerCase(), password || '123456', rolFinal, codigo, creado, shortId],
       )
-      const user = { id, name: name.trim(), email: email.trim().toLowerCase(), telefono: '', rol: rol || 'digitador', verificado: false, codigo, creado, verificado_en: null }
+      const user = { id, short_id: shortId, name: name.trim(), email: email.trim().toLowerCase(), telefono: '', rol: rolFinal, verificado: false, codigo, creado, verificado_en: null }
       await crearCarpetaUsuario(user.name)
       console.log(`[users] Admin creó: ${user.email} (${user.rol}) → código: ${codigo}`)
       io.emit('user:registro', { id: user.id, name: user.name, email: user.email, codigo, rol: user.rol })
@@ -284,10 +300,19 @@ export function usersRouter(io) {
     }
   })
 
-  // Eliminar usuario (admin)
+  // Eliminar usuario (admin) — también borra su carpeta personal
   r.delete('/:id', async (req, res) => {
     try {
-      await pool.query('DELETE FROM users WHERE id = $1', [req.params.id])
+      const userId = req.params.id
+      // Obtener el nombre del usuario antes de borrarlo (para limpiar la carpeta)
+      const uQ = await pool.query('SELECT name FROM users WHERE id = $1', [userId])
+      const userName = uQ.rows[0]?.name || ''
+      // Borrar la carpeta que tenga ese nombre (si existe)
+      if (userName.trim()) {
+        await pool.query('DELETE FROM carpetas WHERE nombre = $1', [userName.trim()])
+      }
+      // Borrar el usuario
+      await pool.query('DELETE FROM users WHERE id = $1', [userId])
       res.json({ ok: true })
     } catch (e) {
       console.error('[users] delete:', e.message)
@@ -301,7 +326,7 @@ export function usersRouter(io) {
   r.post('/keys', async (req, res) => {
     try {
       const { rol } = req.body
-      const rolFinal = ['admin', 'digitador', 'pos'].includes(rol) ? rol : 'digitador'
+      const rolFinal = ['admin', 'digitador', 'pos', 'moderador'].includes(rol) ? rol : 'digitador'
       let codigo = generarCodigo()
       // Evitar duplicados
       for (let i = 0; i < 5; i++) {
@@ -347,6 +372,19 @@ export function usersRouter(io) {
       res.json({ ok: true })
     } catch (e) {
       console.error('[keys] delete:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
+  })
+
+  // Obtener un usuario por id (valida que la sesión siga existiendo)
+  r.get('/:id', async (req, res) => {
+    try {
+      const q = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id])
+      const found = q.rows[0]
+      if (!found) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
+      res.json({ ok: true, user: publicUser(found) })
+    } catch (e) {
+      console.error('[users] get:', e.message)
       res.status(500).json({ ok: false, error: e.message })
     }
   })

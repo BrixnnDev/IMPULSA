@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiArrowLeft, FiAlertCircle, FiZap, FiCheckCircle, FiShield, FiKey } from 'react-icons/fi'
+import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowLeft, FiAlertCircle, FiZap, FiCheckCircle, FiShield, FiKey } from 'react-icons/fi'
 import { useAuth } from '../context/AuthContext'
 import DeviceMockup from '../components/DeviceMockup'
 import RocketLogo from '../components/RocketLogo'
+import CodigoInput from '../components/CodigoInput'
 
 export default function AuthPage({ initialMode = 'login' }) {
   const { login, register, verificar, requiereVerificacion } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState(initialMode)
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
+  const [form, setForm] = useState({ email: '', password: '', confirm: '' })
   const [codigo, setCodigo] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
@@ -27,7 +28,7 @@ export default function AuthPage({ initialMode = 'login' }) {
     if (mode === 'register') {
       if (form.password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres.')
       if (form.password !== form.confirm) return setError('Las contraseñas no coinciden.')
-      const res = await register({ name: form.name, email: form.email, password: form.password })
+      const res = await register({ email: form.email, password: form.password })
       if (!res.ok) return setError(res.error)
       if (res.requiereVerificacion) {
         setMode('verificar')
@@ -113,20 +114,14 @@ export default function AuthPage({ initialMode = 'login' }) {
                       <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="tucorreo@ejemplo.com" className="input-field !pl-11" />
                     </div>
                   </div>
+
                   <div>
                     <label className="label-form">Código de verificación</label>
-                    <div className="relative">
-                      <FiKey className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input
-                        value={codigo}
-                        onChange={(e) => setCodigo(e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="Código de 6 dígitos"
-                        className="input-field !pl-11 text-center font-mono text-xl tracking-[0.3em]"
-                        maxLength={6}
-                        autoFocus
-                      />
+                    <div className="mt-1">
+                      <CodigoInput value={codigo} onChange={setCodigo} />
                     </div>
                   </div>
+
                   <button type="submit" className="btn-primary !mt-6 w-full py-3">
                     <FiKey /> Verificar
                   </button>
@@ -146,7 +141,7 @@ export default function AuthPage({ initialMode = 'login' }) {
                 </h1>
                 <p className="mt-0.5 text-sm text-slate-400">
                   {esRegistro
-                    ? 'Regístrate y espera la verificación del administrador'
+                    ? 'Crea tu cuenta y verifícala con el código del administrador'
                     : 'Inicia sesión para elegir tu perfil y continuar'}
                 </p>
 
@@ -157,16 +152,6 @@ export default function AuthPage({ initialMode = 'login' }) {
                 )}
 
                 <form onSubmit={handleSubmit} className={error ? 'mt-4 space-y-4' : 'mt-5 space-y-4'}>
-                  {esRegistro && (
-                    <div key="name" className="animate-field">
-                      <label className="label-form">Nombre completo</label>
-                      <div className="relative">
-                        <FiUser className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input name="name" type="text" value={form.name} onChange={handleChange} placeholder="Tu nombre" className="input-field !pl-11" style={{ animationDelay: '0.05s' }} />
-                      </div>
-                    </div>
-                  )}
-
                   <div>
                     <label className="label-form">Correo electrónico</label>
                     <div className="relative">

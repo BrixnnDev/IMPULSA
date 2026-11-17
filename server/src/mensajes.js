@@ -1,9 +1,51 @@
 import { Router } from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
 import { randomUUID } from 'crypto'
 import { pool } from './db.js'
 
+const CARPETA_MSGS = path.join(process.cwd(), 'uploads', 'mensajes')
+fs.mkdirSync(CARPETA_MSGS, { recursive: true })
+
+function limpiarNombre(nombre) {
+  const base = path.basename(nombre || 'archivo.bin')
+  return base.replace(/[^a-zA-Z0-9._\- ()áéíóúÁÉÍÓÚñÑ]/g, '_').slice(0, 120)
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, CARPETA_MSGS),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.bin'
+    const sinExt = limpiarNombre(path.basename(file.originalname, path.extname(file.originalname)))
+    cb(null, `${sinExt}-${randomUUID().slice(0, 8)}${ext}`)
+  },
+})
+
+const upload = multer({ storage, limits: { fileSize: 200 * 1024 * 1024 } })
+
 export function mensajesRouter(io) {
   const r = Router()
+
+  // Subir un archivo (documento, imagen o video) para enviarlo por el chat.
+  r.post('/archivo', upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Falta el archivo (campo "file").' })
+    res.json({
+      ok: true,
+      url: `/api/mensajes/archivo/${req.file.filename}`,
+      name: req.file.originalname,
+      mime: req.file.mimetype || '',
+      size: req.file.size,
+    })
+  })
+
+  // Servir el archivo del chat.
+  r.get('/archivo/:nombre', (req, res) => {
+    const nombre = path.basename(req.params.nombre)
+    const ruta = path.join(CARPETA_MSGS, nombre)
+    if (!fs.existsSync(ruta)) return res.status(404).json({ ok: false, error: 'No existe.' })
+    res.sendFile(ruta)
+  })
 
   // Lista de contactos (usuarios con los que existe conversación) + último mensaje + no leídos
   r.get('/usuarios', async (req, res) => {

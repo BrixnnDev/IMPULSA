@@ -12,7 +12,7 @@ export function comisionesRouter(io) {
     const gananciaNum = ganancia != null ? Number(ganancia) : totalNum / 2
     const panaderiaNum = panaderia != null ? Number(panaderia) : totalNum - gananciaNum
     try {
-      const id = `COM-${randomUUID().slice(0, 6).toUpperCase()}`
+      const id = `COP-${(user_id || randomUUID()).slice(0, 4).toUpperCase()}-${randomUUID().slice(0, 4).toUpperCase()}`
       const fila = {
         id,
         user_id: user_id || '',
@@ -81,41 +81,8 @@ export function comisionesRouter(io) {
         local: esAprobacion ? local || '' : '',
       })
 
-      // Si fue aprobado, guardar entrada en la carpeta del digitador
-      if (esAprobacion) {
-        try {
-          const nombreCarpeta = (com.trabajador || '').trim() || 'Usuarios'
-          const exist = await pool.query('SELECT 1 FROM carpetas WHERE nombre=$1', [nombreCarpeta])
-          if (!exist.rowCount) {
-            await pool.query(
-              `INSERT INTO carpetas (id, nombre, creado_por, fecha) VALUES ($1,$2,$3,$4)`,
-              [`carp-${randomUUID().slice(0, 8)}`, nombreCarpeta, aprobado_por || '', new Date().toISOString()],
-            )
-            io.emit('doc:carpeta', { nombre: nombreCarpeta, creado_por: aprobado_por || '', fecha: new Date().toISOString() })
-          }
-          const docId = `VC-${randomUUID().slice(0, 8).toUpperCase()}`
-          const detalle = com.nota ? ` · ${com.nota}` : ''
-          await pool.query(
-            `INSERT INTO documents (id,nombre,tipo,tamano,ruta,carpeta,subido_por,user_id,fecha,estado)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [
-              docId,
-              `Valecito ${com.id} · S/ ${Number(com.total).toFixed(2)}${detalle}`,
-              'Valecito',
-              0,
-              '',
-              nombreCarpeta,
-              aprobado_por || '',
-              com.user_id || '',
-              aprobadoEn,
-              'Aprobado',
-            ],
-          )
-          io.emit('doc:new', { id: docId, carpeta: nombreCarpeta, fecha: aprobadoEn })
-        } catch (e) {
-          console.warn('[comisiones] guardar en carpeta:', e.message)
-        }
-      }
+      // Si fue aprobado, NO guardar nada en la carpeta del digitador.
+      // Los valecitos aprobados solo viven en la tabla de comisiones.
 
       res.json({ ok: true, comision: { ...com, estado, aprobado: esAprobacion, local: esAprobacion ? local || '' : '' } })
     } catch (e) {

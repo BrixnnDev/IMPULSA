@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { io } from 'socket.io-client'
 import { invoke } from '@tauri-apps/api/core'
+import { apiBase, normalizeCode } from '../config'
 
-export default function ConnectedScreen({ pcInfo, serverUrl, onDisconnect }) {
+export default function ConnectedScreen({ pcInfo, serverUrl, onDisconnect, onRemoved }) {
   const [heartbeatActive, setHeartbeatActive] = useState(true)
   const [userInfo, setUserInfo] = useState(pcInfo?.userInfo || null)
   const [lastHeartbeat, setLastHeartbeat] = useState(null)
   const socketRef = useRef(null)
   const intervalRef = useRef(null)
+  const base = apiBase(serverUrl)
 
   useEffect(() => {
     const fetchUserInfo = async () => {
       if (userInfo) return
       try {
-        const resp = await fetch(`${serverUrl}/api/pc/user-info?code=${pcInfo?.pairingCode}`)
+        const resp = await fetch(`${base}/api/pc/user-info?code=${pcInfo?.pairingCode}`)
         if (resp.ok) {
           const data = await resp.json()
           if (data?.user) setUserInfo(data.user)
@@ -21,12 +23,12 @@ export default function ConnectedScreen({ pcInfo, serverUrl, onDisconnect }) {
       } catch {}
     }
     fetchUserInfo()
-  }, [serverUrl, pcInfo, userInfo])
+  }, [base, pcInfo, userInfo])
 
   useEffect(() => {
     const sendHeartbeat = async () => {
       try {
-        const resp = await fetch(`${serverUrl}/api/pc/heartbeat`, {
+        const resp = await fetch(`${base}/api/pc/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -37,8 +39,6 @@ export default function ConnectedScreen({ pcInfo, serverUrl, onDisconnect }) {
           }),
         })
         if (resp.ok) {
-          const data = await resp.json().catch(() => null)
-          if (data?.user) setUserInfo(data.user)
           setLastHeartbeat(new Date())
         }
         setHeartbeatActive(true)
@@ -68,6 +68,16 @@ export default function ConnectedScreen({ pcInfo, serverUrl, onDisconnect }) {
         setLastHeartbeat(new Date())
       })
 
+      socket.on('pc:removed', async (d) => {
+        try {
+          const saved = await invoke('load_state')
+          if (saved && d?.codigo && normalizeCode(saved.pairing_code) === normalizeCode(d.codigo)) {
+            await invoke('clear_state').catch(() => {})
+            onRemoved?.()
+          }
+        } catch {}
+      })
+
       socketRef.current = socket
     } catch {}
 
@@ -75,7 +85,7 @@ export default function ConnectedScreen({ pcInfo, serverUrl, onDisconnect }) {
       clearInterval(intervalRef.current)
       socketRef.current?.disconnect()
     }
-  }, [pcInfo, serverUrl])
+  }, [pcInfo, serverUrl, base, onRemoved])
 
   const handleMinimize = useCallback(async () => {
     try {

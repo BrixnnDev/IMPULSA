@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { FiPlus, FiMinus, FiTrash2, FiCreditCard, FiSearch, FiCheckCircle, FiShoppingCart } from 'react-icons/fi'
 import { productosSeed, ventasSeed } from '../../data/mockData'
 
-const fmt = (n) => `S/ ${n.toFixed(2)}`
+const fmt = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
 export default function PosVentas() {
   const [productos] = useState(productosSeed)

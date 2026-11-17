@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import {
   FiGlobe, FiPlus, FiX, FiTrash2, FiExternalLink, FiSearch,
@@ -183,7 +183,7 @@ export default function DigitAccesosWeb() {
           )}
           <div>
             <h2 className="flex items-center gap-2.5 text-xl font-black text-white">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600/15 text-sky-400 ring-1 ring-sky-500/30">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-sky-500/30 bg-sky-600/15 text-sky-400">
                 {carpetaAbierta ? <FiFolder size={18} /> : <FiGlobe size={18} />}
               </span>
               {carpetaAbierta ? carpetaAbierta.nombre : 'Accesos Web'}
@@ -356,7 +356,7 @@ export default function DigitAccesosWeb() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setModalCarpeta(false)}>
           <div className="w-full max-w-sm space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600/15 text-violet-400 ring-1 ring-violet-500/40">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-violet-500/40 bg-violet-600/15 text-violet-400">
                 <FiFolder size={18} />
               </span>
               <div>
@@ -394,7 +394,7 @@ export default function DigitAccesosWeb() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setModalAcceso(false)}>
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600/15 text-sky-400 ring-1 ring-sky-500/40">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-sky-500/40 bg-sky-600/15 text-sky-400">
                 <FiPlus size={18} />
               </span>
               <div>

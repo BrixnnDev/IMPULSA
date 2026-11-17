@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   FiMenu,
@@ -187,8 +187,10 @@ function Clock() {
 export default function DashboardLayout({ profile }) {
   const [open, setOpen] = useState(false)
   const [perfilOpen, setPerfilOpen] = useState(false)
-  const [avatar] = useAvatar()
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, isAdmin, isModerador } = useAuth()
+  const [avatarLocal] = useAvatar(user?.id)
+  // Prioriza la foto guardada en la cuenta (visible para los demás usuarios).
+  const avatar = user?.avatar_url || avatarLocal
 
   // Ganancias del usuario actual
   const [ganancias, setGanancias] = useState({ hoy: 0, semana: 0, pendiente: 0 })
@@ -236,14 +238,105 @@ export default function DashboardLayout({ profile }) {
   const [compOpen, setCompOpen] = useState(false)
   const [comp, setComp] = useState({ to: '', asunto: '', texto: '' })
   const [enviadoOk, setEnviadoOk] = useState('')
+
+  // Mensajes no leídos para el punto en el sidebar
+  const [noLeidosMensajes, setNoLeidosMensajes] = useState(0)
+
+  useEffect(() => {
+    if (!user?.id) return
+    const cargarNoLeidos = () => {
+      fetch(`${API_URL}/api/mensajes/usuarios?de_user=${user.id}`)
+        .then((r) => r.json())
+        .then((arr) => {
+          if (!Array.isArray(arr)) return
+          const total = arr.reduce((a, c) => a + (c.noLeidos || 0), 0)
+          setNoLeidosMensajes(total)
+          // Agregar notificaciones reales al panel de notificaciones
+          if (total > 0) {
+            setNotifs((prev) => {
+              const yaExiste = prev.some((n) => n.id === 'msg-unread')
+              if (yaExiste) return prev.map((n) => n.id === 'msg-unread' ? { ...n, desc: `${total} mensaje${total > 1 ? 's' : ''} sin leer`, unread: true } : n)
+              return [{ id: 'msg-unread', titulo: 'Mensajes sin leer', desc: `${total} mensaje${total > 1 ? 's' : ''} sin leer`, hora: 'Ahora', unread: true, color: 'bg-emerald-500/15 text-emerald-400' }, ...prev]
+            })
+          } else {
+            setNotifs((prev) => prev.filter((n) => n.id !== 'msg-unread'))
+          }
+        })
+        .catch(() => {})
+    }
+    cargarNoLeidos()
+    const id = setInterval(cargarNoLeidos, 5000)
+    return () => clearInterval(id)
+  }, [user?.id])
   const socketRef = useRef(null)
 
   // Conexion en tiempo real con el servidor local (WhatsApp Cloud API + Gmail)
   useEffect(() => {
     const s = io(API_URL, { transports: ['websocket'], reconnectionAttempts: 5 })
     socketRef.current = s
-    s.on('connect', () => setLive(true))
+    // Registra al usuario como conectado (presencia global para Mensajes).
+    const registrarPresencia = () =>
+      s.emit('user:online', {
+        id: user?.id || '',
+        name: user?.name || '',
+        email: user?.email || '',
+        rol: user?.rol || '',
+        avatar_url: user?.avatar_url || '',
+      })
+    s.on('connect', () => {
+      setLive(true)
+      registrarPresencia()
+    })
+    if (s.connected) registrarPresencia()
     s.on('disconnect', () => setLive(false))
+
+    // ── Notificaciones en tiempo real ──
+    // Mensaje nuevo recibido
+    s.on('mensaje:new', (m) => {
+      if (!m || m.de_user === user?.id) return // no notificar los propios
+      setNoLeidosMensajes((n) => n + 1)
+      setNotifs((prev) => [{
+        id: `msg-${m.id || Date.now()}`,
+        titulo: '💬 Mensaje nuevo',
+        desc: m.de_user ? `De: ${m.de_user}` : 'Alguien te escribió',
+        hora: 'Ahora',
+        unread: true,
+        color: 'bg-emerald-500/15 text-emerald-400',
+      }, ...prev.slice(0, 19)])
+    })
+    // Comisión aprobada o pagada
+    s.on('comision:update', (c) => {
+      if (c.estado === 'Aprobado') {
+        setNotifs((prev) => [{
+          id: `com-${c.id}-ap`,
+          titulo: '✅ Ticket aprobado',
+          desc: `Valecito ${c.id} fue aprobado`,
+          hora: 'Ahora',
+          unread: true,
+          color: 'bg-emerald-500/15 text-emerald-400',
+        }, ...prev.slice(0, 19)])
+      } else if (c.estado === 'Pagado') {
+        setNotifs((prev) => [{
+          id: `com-${c.id}-pg`,
+          titulo: '💰 Pago recibido',
+          desc: `Valecito ${c.id} marcado como pagado`,
+          hora: 'Ahora',
+          unread: true,
+          color: 'bg-amber-500/15 text-amber-400',
+        }, ...prev.slice(0, 19)])
+      }
+    })
+    // Impresión completada
+    s.on('pc:print', (r) => {
+      setNotifs((prev) => [{
+        id: `print-${r.id || Date.now()}`,
+        titulo: '🖨️ Impresión completada',
+        desc: `${r.documento || 'Documento'} · ${r.pc || ''}`,
+        hora: 'Ahora',
+        unread: true,
+        color: 'bg-blue-500/15 text-blue-400',
+      }, ...prev.slice(0, 19)])
+    })
     s.on('whatsapp:message', (m) => {
       setChats((prev) => {
         const idx = prev.findIndex((c) => c.wa_id === m.wa_id || c.nombre === m.name)
@@ -275,7 +368,7 @@ export default function DashboardLayout({ profile }) {
       )
     })
     return () => s.close()
-  }, [])
+  }, [user?.id, user?.name, user?.email, user?.rol, user?.avatar_url])
 
   const noLeidas = notifs.filter((n) => n.unread).length
 
@@ -342,8 +435,18 @@ export default function DashboardLayout({ profile }) {
     }
   }
   const navigate = useNavigate()
-  const links = [...NAV[profile]]
-  if (isAdmin && profile === 'digitacion') {
+  let links = [...NAV[profile]]
+  if (profile === 'digitacion' && isModerador) {
+    // El moderador ve el panel de digitación completo (inicio, documentos,
+    // historial de escáner, historial de impresión, accesos web, mensajes y
+    // formatos) más el ticket de aprobación de valecitos.
+    links = NAV.digitacion.map((g) => ({
+      ...g,
+      items: g.items.map((it) =>
+        it.to === '/digitacion/historial' ? { ...it, label: 'Ticket de aprobación' } : it,
+      ),
+    }))
+  } else if (isAdmin && profile === 'digitacion') {
     links.push({
       title: 'Admin',
       items: [
@@ -405,7 +508,7 @@ export default function DashboardLayout({ profile }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{user?.name || 'Usuario'}</p>
               <p className="truncate text-[11px] text-slate-400">
-                Perfil: {profile === 'pos' ? 'POS · Vendedor' : 'Digitación'}
+                Perfil: {profile === 'pos' ? 'POS · Vendedor' : isAdmin ? 'Administrador' : isModerador ? 'Moderador' : 'Digitación'}
               </p>
             </div>
           </button>
@@ -423,7 +526,9 @@ export default function DashboardLayout({ profile }) {
                 </p>
               )}
               <div className="space-y-1">
-                {group.items.map(({ to, label, icon: Icon, end }) => (
+                {group.items.map(({ to, label, icon: Icon, end }) => {
+                  const esMensajes = to === '/digitacion/mensajes'
+                  return (
                   <NavLink
                     key={to}
                     to={to}
@@ -444,19 +549,40 @@ export default function DashboardLayout({ profile }) {
                           }`
                     }
                   >
-                    <Icon size={18} className="shrink-0" />
+                    {/* Icono con badge de mensajes no leídos */}
+                    <span className="relative shrink-0">
+                      <Icon size={18} />
+                      {esMensajes && noLeidosMensajes > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-night-900">
+                          {noLeidosMensajes > 9 ? '9+' : noLeidosMensajes}
+                        </span>
+                      )}
+                    </span>
                     {iconOnly ? (
                       <>
                         <span className="sr-only">{label}</span>
                         <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-night-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg shadow-black/40 transition-opacity duration-150 group-hover:opacity-100">
                           {label}
+                          {esMensajes && noLeidosMensajes > 0 && (
+                            <span className="ml-1.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black text-white">
+                              {noLeidosMensajes}
+                            </span>
+                          )}
                         </span>
                       </>
                     ) : (
-                      label
+                      <span className="flex flex-1 items-center justify-between">
+                        {label}
+                        {esMensajes && noLeidosMensajes > 0 && (
+                          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
+                            {noLeidosMensajes > 9 ? '9+' : noLeidosMensajes}
+                          </span>
+                        )}
+                      </span>
                     )}
                   </NavLink>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ))}
@@ -635,9 +761,14 @@ export default function DashboardLayout({ profile }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
                 <p className="truncate text-xs text-slate-400">{user?.email || '—'}</p>
-                <span className="mt-1.5 inline-block rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
-                  {profile === 'pos' ? 'POS · Vendedor' : 'Digitación'}
-                </span>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="rounded-lg bg-night-800 px-2 py-0.5 font-mono text-[10px] font-bold text-blue-300 ring-1 ring-blue-500/25">
+                    ID: {user?.short_id || user?.id?.replace(/^u-/, '').slice(0, 8).toUpperCase() || '????????'}
+                  </span>
+                  <span className="inline-block rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
+                    {profile === 'pos' ? 'POS · Vendedor' : isModerador ? 'Moderador' : 'Digitación'}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setPerfilOpen(false)}
@@ -664,6 +795,7 @@ export default function DashboardLayout({ profile }) {
               </dl>
             </div>
 
+            {!isModerador && (
             <div className="border-t border-white/5 pt-4">
               <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                 <FiDollarSign size={13} className="text-emerald-400" /> Mis ganancias · COP
@@ -671,18 +803,19 @@ export default function DashboardLayout({ profile }) {
               <dl className="space-y-2.5 text-sm">
                 <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <dt className="text-slate-400">Hoy</dt>
-                  <dd className="font-black text-emerald-400">S/ {ganancias.hoy.toFixed(2)}</dd>
+                  <dd className="font-black text-emerald-400">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(ganancias.hoy)}</dd>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <dt className="text-slate-400">Esta semana</dt>
-                  <dd className="font-black text-emerald-400">S/ {ganancias.semana.toFixed(2)}</dd>
+                  <dd className="font-black text-emerald-400">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(ganancias.semana)}</dd>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <dt className="text-slate-400">Pagos pendientes</dt>
-                  <dd className="font-black text-amber-400">S/ {ganancias.pendiente.toFixed(2)}</dd>
+                  <dd className="font-black text-amber-400">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(ganancias.pendiente)}</dd>
                 </div>
               </dl>
             </div>
+            )}
 
             <div className="border-t border-white/5 pt-4">
               <button
@@ -709,42 +842,42 @@ export default function DashboardLayout({ profile }) {
             className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
               {emailAbierto || compOpen ? (
                 <button
                   onClick={() => (compOpen ? setCompOpen(false) : setEmailAbierto(null))}
                   aria-label="Volver"
-                  className="rounded-xl p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
                 >
-                  <FiArrowLeft size={18} />
+                  <FiArrowLeft size={15} />
                 </button>
               ) : (
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/15 text-red-400 ring-1 ring-red-500/30">
-                  <FiMail size={17} />
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-400 ring-1 ring-red-500/30">
+                  <FiMail size={13} />
                 </span>
               )}
               <div>
-                <h3 className="font-bold text-white">
+                <h3 className="text-xs font-bold text-white">
                   {compOpen ? 'Redactar' : emailAbierto ? 'Mensaje' : 'Bandeja de entrada'}
                 </h3>
-                <p className="text-xs text-slate-400">{emails.filter((e) => e.unread).length} sin leer</p>
+                <p className="text-[10px] text-slate-400">{emails.filter((e) => e.unread).length} sin leer</p>
               </div>
               {enviadoOk && (
-                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-300 ring-1 ring-emerald-500/30">
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-500/30">
                   {enviadoOk}
                 </span>
               )}
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-1.5">
                 {!emailAbierto && !compOpen && (
                   <>
                     <span
-                      className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 sm:inline-flex ${
+                      className={`hidden items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ring-1 sm:inline-flex ${
                         live
                           ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/30'
                           : 'bg-amber-500/10 text-amber-400 ring-amber-500/30'
                       }`}
                     >
-                      <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                      <span className={`h-1 w-1 rounded-full ${live ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                       {live ? 'En vivo' : 'Demo'}
                     </span>
                     <button
@@ -752,7 +885,7 @@ export default function DashboardLayout({ profile }) {
                         setCompOpen(true)
                         setEmailAbierto(null)
                       }}
-                      className="rounded-xl bg-red-500/15 px-3 py-1.5 text-xs font-bold text-red-400 ring-1 ring-red-500/30 transition hover:bg-red-500 hover:text-white"
+                      className="rounded-lg bg-red-500/15 px-2.5 py-1 text-[10px] font-bold text-red-400 ring-1 ring-red-500/30 transition hover:bg-red-500 hover:text-white"
                     >
                       Redactar
                     </button>
@@ -761,57 +894,57 @@ export default function DashboardLayout({ profile }) {
                 <button
                   onClick={() => setCorreoOpen(false)}
                   aria-label="Cerrar"
-                  className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
                 >
-                  <FiX size={16} />
+                  <FiX size={14} />
                 </button>
               </div>
             </div>
 
             {compOpen ? (
-              <form onSubmit={enviarCorreo} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
+              <form onSubmit={enviarCorreo} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                 <div>
-                  <label className="label-form">Para *</label>
+                  <label className="label-form !text-[10px]">Para *</label>
                   <input
                     value={comp.to}
                     onChange={(e) => setComp({ ...comp, to: e.target.value })}
                     placeholder="destinatario@correo.com"
-                    className="input-field"
+                    className="input-field !py-2 !text-xs"
                   />
                 </div>
                 <div>
-                  <label className="label-form">Asunto *</label>
+                  <label className="label-form !text-[10px]">Asunto *</label>
                   <input
                     value={comp.asunto}
                     onChange={(e) => setComp({ ...comp, asunto: e.target.value })}
                     placeholder="Asunto del correo"
-                    className="input-field"
+                    className="input-field !py-2 !text-xs"
                   />
                 </div>
                 <div>
-                  <label className="label-form">Mensaje</label>
+                  <label className="label-form !text-[10px]">Mensaje</label>
                   <textarea
                     value={comp.texto}
                     onChange={(e) => setComp({ ...comp, texto: e.target.value })}
-                    rows={7}
+                    rows={6}
                     placeholder="Escribe tu mensaje…"
-                    className="input-field resize-none"
+                    className="input-field !text-xs resize-none"
                   />
                 </div>
                 <div className="flex justify-end">
-                  <button type="submit" className="btn-primary !px-5 !py-2.5 !text-xs">
-                    <FiSend /> Enviar correo
+                  <button type="submit" className="btn-primary !px-4 !py-2 !text-xs">
+                    <FiSend size={12} /> Enviar correo
                   </button>
                 </div>
               </form>
             ) : !emailAbierto ? (
               <>
-                <div className="border-b border-white/5 px-5 py-3">
+                <div className="border-b border-white/5 px-4 py-2">
                   <input
                     value={correoQ}
                     onChange={(e) => setCorreoQ(e.target.value)}
                     placeholder="Buscar en el correo…"
-                    className="input-field !py-2 !text-xs"
+                    className="input-field !py-1.5 !text-xs"
                   />
                 </div>
                 <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
@@ -823,26 +956,26 @@ export default function DashboardLayout({ profile }) {
                       <li key={m.id}>
                         <button
                           onClick={() => abrirEmail(m.id)}
-                          className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.03] ${
+                          className={`flex w-full items-start gap-2.5 px-4 py-2.5 text-left transition hover:bg-white/[0.03] ${
                             m.unread ? 'bg-blue-600/[0.06]' : ''
                           }`}
                         >
-                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${m.color}`}>
+                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${m.color}`}>
                             {m.de.charAt(0).toUpperCase()}
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
-                              <p className={`truncate text-sm ${m.unread ? 'font-bold text-white' : 'font-semibold text-slate-300'}`}>
+                              <p className={`truncate text-xs ${m.unread ? 'font-bold text-white' : 'font-semibold text-slate-300'}`}>
                                 {m.de}
                               </p>
-                              <span className="ml-auto shrink-0 text-[11px] text-slate-500">{m.hora}</span>
+                              <span className="ml-auto shrink-0 text-[10px] text-slate-500">{m.hora}</span>
                             </div>
-                            <p className={`truncate text-xs ${m.unread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>
+                            <p className={`truncate text-[11px] ${m.unread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>
                               {m.asunto}
                             </p>
-                            <p className="truncate text-xs text-slate-500">{m.texto}</p>
+                            <p className="truncate text-[10px] text-slate-500">{m.texto}</p>
                           </div>
-                          {m.unread && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
+                          {m.unread && <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />}
                         </button>
                       </li>
                     ))}
@@ -851,19 +984,19 @@ export default function DashboardLayout({ profile }) {
             ) : (() => {
               const m = emails.find((e) => e.id === emailAbierto)
               return (
-                <div className="min-h-0 flex-1 overflow-y-auto p-6">
-                  <h4 className="text-lg font-bold text-white">{m.asunto}</h4>
-                  <div className="mt-4 flex items-center gap-3">
-                    <span className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${m.color}`}>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                  <h4 className="text-sm font-bold text-white">{m.asunto}</h4>
+                  <div className="mt-3 flex items-center gap-2.5">
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${m.color}`}>
                       {m.de.charAt(0)}
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-white">{m.de}</p>
-                      <p className="text-xs text-slate-500">{m.correo}</p>
+                      <p className="text-xs font-semibold text-white">{m.de}</p>
+                      <p className="text-[10px] text-slate-500">{m.correo}</p>
                     </div>
-                    <span className="ml-auto text-xs text-slate-500">{m.hora}</span>
+                    <span className="ml-auto text-[10px] text-slate-500">{m.hora}</span>
                   </div>
-                  <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-slate-300">{m.texto}</p>
+                  <p className="mt-4 whitespace-pre-line text-xs leading-relaxed text-slate-300">{m.texto}</p>
                 </div>
               )
             })()}

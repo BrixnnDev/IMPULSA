@@ -2,13 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::net::UdpSocket;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::Manager;
-
-struct AppState {
-    window_visible: Mutex<bool>,
-    app_handle: Mutex<Option<tauri::AppHandle>>,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SavedState {
@@ -145,6 +139,13 @@ fn clear_state(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn sanitize_bat_value(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':' | '/' | '@'))
+        .collect()
+}
+
 #[tauri::command]
 fn install_startup_script(
     server_url: String,
@@ -156,13 +157,17 @@ fn install_startup_script(
         .map(|appdata| PathBuf::from(appdata).join("Microsoft").join("Windows").join("Start Menu").join("Programs").join("Startup"))
         .map_err(|e| format!("Failed to get APPDATA: {}", e))?;
 
+    let safe_url = sanitize_bat_value(server_url.trim_end_matches('/'));
+    let safe_code = sanitize_bat_value(&pairing_code);
+    let safe_name = sanitize_bat_value(&pc_name);
+
     let heartbeat_script = format!(
         r#"@echo off
 :loop
-curl -s -X POST "{}/api/heartbeat" -H "Content-Type: application/json" -d "{{\"pc_name\":\"{}\",\"pairing_code\":\"{}\"}}" > nul 2>&1
+curl -s -X POST "{}/api/pc/heartbeat" -H "Content-Type: application/json" -d "{{\"pc_name\":\"{}\",\"pairing_code\":\"{}\"}}" > nul 2>&1
 timeout /t 30 /nobreak > nul
 goto loop"#,
-        server_url, pc_name, pairing_code
+        safe_url, safe_name, safe_code
     );
 
     let bat_path = startup_dir.join("impulsa_heartbeat.bat");
@@ -185,9 +190,6 @@ WshShell.Run Chr(34) & "{}" & Chr(34), 0, False"#,
 fn hide_to_tray(app: tauri::AppHandle) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("no window")?;
     window.hide().map_err(|e| e.to_string())?;
-    if let Some(state) = app.try_state::<AppState>() {
-        *state.window_visible.lock().unwrap() = false;
-    }
     Ok(())
 }
 
@@ -215,10 +217,6 @@ fn remove_startup_script() -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(AppState {
-            window_visible: Mutex::new(true),
-            app_handle: Mutex::new(None),
-        })
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -228,14 +226,7 @@ pub fn run() {
                 )?;
             }
 
-            let handle = app.handle().clone();
-            {
-                let state: tauri::State<AppState> = handle.state();
-                *state.app_handle.lock().unwrap() = Some(handle.clone());
-            }
-
             let window = app.get_webview_window("main").unwrap();
-
             let tray = app.tray_by_id("main-tray").unwrap();
 
             let show_item = tauri::menu::MenuItem::with_id(
@@ -256,41 +247,30 @@ pub fn run() {
             let menu = tauri::menu::Menu::with_items(app, &[&show_item, &quit_item])?;
             tray.set_menu(Some(menu))?;
 
-            let window_clone = window.clone();
-            let state_handle = handle.clone();
-            tray.on_menu_event(move |_app, event| {
-                match event.id().as_ref() {
-                    "show" => {
-                        let app_state: tauri::State<AppState> = state_handle.state();
-                        let mut visible = app_state.window_visible.lock().unwrap();
-                        if *visible {
-                            window_clone.hide().ok();
-                            *visible = false;
-                        } else {
-                            window_clone.show().ok();
-                            window_clone.set_focus().ok();
-                            *visible = true;
-                        }
-                    }
-                    "quit" => {
-                        std::process::exit(0);
-                    }
-                    _ => {}
+            let window_menu = window.clone();
+            tray.on_menu_event(move |_app, event| match event.id().as_ref() {
+                "show" => {
+                    show_window(&window_menu);
                 }
+                "quit" => {
+                    std::process::exit(0);
+                }
+                _ => {}
             });
 
-            let state_handle2 = handle.clone();
+            let window_click = window.clone();
             tray.on_tray_icon_event(move |_tray, event| {
-                if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                    let app_state: tauri::State<AppState> = state_handle2.state();
-                    let mut visible = app_state.window_visible.lock().unwrap();
-                    if *visible {
-                        window.hide().ok();
-                        *visible = false;
+                if let tauri::tray::TrayIconEvent::Click {
+                    button: tauri::tray::MouseButton::Left,
+                    button_state: tauri::tray::MouseButtonState::Up,
+                    ..
+                } = event
+                {
+                    let visible = window_click.is_visible().unwrap_or(false);
+                    if visible {
+                        window_click.hide().ok();
                     } else {
-                        window.show().ok();
-                        window.set_focus().ok();
-                        *visible = true;
+                        show_window(&window_click);
                     }
                 }
             });
@@ -310,4 +290,10 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn show_window(window: &tauri::WebviewWindow) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
 }

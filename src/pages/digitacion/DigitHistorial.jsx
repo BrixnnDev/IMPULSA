@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   FiCheckCircle,
   FiDollarSign,
@@ -7,7 +7,9 @@ import {
   FiUser,
   FiShoppingBag,
   FiArrowRight,
+  FiDownload,
 } from 'react-icons/fi'
+import useAvatar from '../../hooks/useAvatar'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -17,6 +19,9 @@ const LOCALES = [
   { key: 'KYB1', nombre: 'Papelería KYB 1', desc: 'Local principal', color: 'bg-blue-600' },
   { key: 'KYB2', nombre: 'Papelería KYB 2', desc: 'Local secundario', color: 'bg-violet-600' },
 ]
+
+const COP = (n) =>
+  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(n) || 0)
 
 function diaLocal(iso) {
   const d = new Date(iso)
@@ -35,12 +40,14 @@ export default function DigitHistorial() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [diaFiltro, setDiaFiltro] = useState(hoyLocal())
-  const { user, isAdmin } = useAuth()
+  const { user, puedeAprobar } = useAuth()
+  const [avatarLocal] = useAvatar(user?.id)
+  const avatar = user?.avatar_url || avatarLocal
 
   const cargar = async () => {
     try {
-      // Cada usuario solo ve sus propias comisiones; el admin ve todas
-      const url = isAdmin
+      // Admin y moderador ven todas las comisiones; el digitador solo las suyas
+      const url = puedeAprobar
         ? `${API}/api/comisiones`
         : `${API}/api/comisiones?user_id=${encodeURIComponent(user?.id || '')}`
       const lista = await fetch(url).then((r) => r.json())
@@ -56,7 +63,9 @@ export default function DigitHistorial() {
     cargar()
     const id = setInterval(cargar, 1000)
     return () => clearInterval(id)
-  }, [user?.id, isAdmin])
+  }, [user?.id, puedeAprobar])
+
+  const [mostrarDigitadores, setMostrarDigitadores] = useState(false)
 
   const totalNum = Number(formCom.total) || 0
   const mitad = totalNum / 2
@@ -70,6 +79,27 @@ export default function DigitHistorial() {
     if (!diaFiltro) return [...comisiones]
     return comisiones.filter((c) => diaLocal(c.fecha) === diaFiltro)
   }, [comisiones, diaFiltro])
+
+  // Aprobadas del día filtrado agrupadas por digitador
+  const aprobadasDiaFiltro = useMemo(
+    () => visibles.filter((c) => c.aprobado === true),
+    [visibles],
+  )
+
+  const digitadoresDia = useMemo(() => {
+    const mapa = new Map()
+    for (const c of aprobadasDiaFiltro) {
+      const nombre = c.trabajador || 'Sin nombre'
+      const prev = mapa.get(nombre) || { nombre, ganancia: 0, total: 0, cantidad: 0 }
+      mapa.set(nombre, {
+        nombre,
+        ganancia: prev.ganancia + (c.ganancia || 0),
+        total: prev.total + (c.total || 0),
+        cantidad: prev.cantidad + 1,
+      })
+    }
+    return [...mapa.values()].sort((a, b) => b.ganancia - a.ganancia)
+  }, [aprobadasDiaFiltro])
 
   const pendientes = comisiones.filter((c) => !c.aprobado && c.estado !== 'Rechazado')
   const pendientesLocal = (key) => pendientes.filter((c) => !c.local || c.local === '' || c.local === key)
@@ -106,7 +136,7 @@ export default function DigitHistorial() {
       if (!r.ok || !data.ok) throw new Error(data.error || 'Error al registrar')
       setComisiones((prev) => [data.comision, ...prev])
       setMostrarComision(false)
-      setFormCom({ total: '', nota: '' })
+      setFormCom({ total: '', totalDisplay: '', nota: '' })
     } catch (err) {
       setError(err.message)
     }
@@ -119,8 +149,8 @@ export default function DigitHistorial() {
     return <span className="rounded-full bg-slate-500/15 px-3 py-1 text-xs font-semibold text-slate-400 ring-1 ring-slate-400/30">Pendiente</span>
   }
 
-  /* ================= ADMIN: selección de local (dos cards en el centro) ================= */
-  if (isAdmin) {
+  /* ================= ADMIN / MODERADOR: selección de local (dos cards en el centro) ================= */
+  if (puedeAprobar) {
     const totalPend = pendientes.length
     return (
       <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
@@ -183,8 +213,8 @@ export default function DigitHistorial() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-              <FiDollarSign size={18} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+              <FiDollarSign size={16} />
             </span>
             Historial de valecitos
           </h2>
@@ -209,9 +239,13 @@ export default function DigitHistorial() {
         {/* Perfil de la cuenta */}
         <div className="panel flex flex-col overflow-hidden p-5">
           <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-lg font-bold text-blue-300 ring-1 ring-blue-500/40">
-              {user?.name?.charAt(0).toUpperCase() || <FiUser size={20} />}
-            </span>
+            {avatar ? (
+              <img src={avatar} alt="Avatar" className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-blue-500/40" />
+            ) : (
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-lg font-bold text-blue-300 ring-1 ring-blue-500/40">
+                {user?.name?.charAt(0).toUpperCase() || <FiUser size={20} />}
+              </span>
+            )}
             <div className="min-w-0">
               <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
               <p className="truncate text-[11px] text-slate-500">{user?.email || 'cuenta@impulsa.app'}</p>
@@ -232,94 +266,171 @@ export default function DigitHistorial() {
               <dt className="flex items-center gap-2.5 text-slate-400">
                 <FiDollarSign size={14} className="text-white" /> Dinero aprobado
               </dt>
-              <dd className="font-bold text-white">S/ {totalGeneral.toFixed(2)}</dd>
+              <dd className="font-bold text-white">{COP(totalGeneral)}</dd>
             </div>
             <div className="flex items-center justify-between gap-4 rounded-xl bg-amber-500/5 px-3 py-2 ring-1 ring-amber-500/20">
               <dt className="flex items-center gap-2.5 text-slate-400">
                 <FiPercent size={14} className="text-amber-400" /> Papelería (50%)
               </dt>
-              <dd className="font-bold text-amber-400">S/ {totalPanaderia.toFixed(2)}</dd>
+              <dd className="font-bold text-amber-400">{COP(totalPanaderia)}</dd>
             </div>
-            <div className="flex items-center justify-between gap-4 rounded-xl bg-emerald-500/5 px-3 py-2 ring-1 ring-emerald-500/20">
+            <button
+              onClick={() => setMostrarDigitadores(true)}
+              className="flex w-full items-center justify-between gap-4 rounded-xl bg-emerald-500/5 px-3 py-2 ring-1 ring-emerald-500/20 transition hover:bg-emerald-500/10"
+            >
               <dt className="flex items-center gap-2.5 text-slate-400">
-                <FiPercent size={14} className="text-emerald-400" /> Digitador (50%)
+                <FiPercent size={14} className="text-emerald-400" /> Digitadores (50%)
               </dt>
-              <dd className="font-bold text-emerald-400">S/ {totalGanancias.toFixed(2)}</dd>
-            </div>
+              <dd className="font-bold text-emerald-400">{COP(totalGanancias)}</dd>
+            </button>
           </dl>
-
-          {/* Historial de comisiones (del día seleccionado) */}
-          <div className="mt-auto border-t border-white/5 pt-4">
-            <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Registro del día ({visibles.length})
-            </p>
-            <ul className="space-y-2">
-              {[...visibles].slice(0, 3).map((c) => (
-                <li key={c.id} className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-white">Trabajo S/ {c.total.toFixed(2)}</p>
-                    <p className="text-[11px] text-slate-500">{c.id} · {c.estado}{c.nota && ` · ${c.nota}`}</p>
-                  </div>
-                  <span className="shrink-0 text-xs font-black text-emerald-400">+ S/ {c.ganancia.toFixed(2)}</span>
-                </li>
-              ))}
-              {visibles.length === 0 && (
-                <li className="rounded-xl bg-white/[0.03] px-3 py-3 text-center text-xs text-slate-500 ring-1 ring-white/5">
-                  Sin registros en esta fecha.
-                </li>
-              )}
-            </ul>
-            {visibles.length > 3 && <li className="mt-2 text-[11px] text-slate-500">+{visibles.length - 3} registros más</li>}
-          </div>
         </div>
 
-        {/* Lista de trabajos del día */}
-        <div className="panel min-h-0 flex-1 overflow-hidden">
+        {/* Panel derecho: lista de trabajos del día (arriba) + registro del día (abajo) */}
+        <div className="panel min-h-0 flex-1 flex flex-col overflow-hidden">
           {error && (
             <div className="border-b border-red-500/20 bg-red-500/10 px-5 py-2 text-xs text-red-300">{error}</div>
           )}
-          {cargando ? (
-            <p className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Cargando…</p>
-          ) : visibles.length === 0 ? (
-            <p className="flex h-full items-center justify-center p-10 text-sm text-slate-500">
-              No hay valecitos en esta fecha.
-            </p>
-          ) : (
-            <ul className="h-full divide-y divide-white/5 overflow-y-auto">
-              {[...visibles].reverse().map((t) => (
-                <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition hover:bg-white/[0.03]">
-                  <span className="rounded-lg bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">{t.id}</span>
-                  <div className="min-w-[160px] flex-1">
-                    <p className="text-sm font-semibold text-white">{t.trabajador || 'Cliente'}</p>
-                    <p className="text-xs text-slate-500">
-                      {t.nota ? t.nota : 'Trabajo registrado'} ·{' '}
-                      {new Date(t.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
-                    </p>
+
+          {/* Mitad superior: lista de trabajos con scroll */}
+          <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Trabajos del día · {visibles.length}
+              </p>
+            </div>
+            {cargando ? (
+              <p className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">Cargando…</p>
+            ) : visibles.length === 0 ? (
+              <p className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">
+                No hay valecitos en esta fecha.
+              </p>
+            ) : (
+              <ul className="flex-1 divide-y divide-white/5 overflow-y-auto">
+                {[...visibles].reverse().map((t) => (
+                  <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition hover:bg-white/[0.03]">
+                    <span className="rounded-lg bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">{t.id}</span>
+                    <div className="min-w-[140px] flex-1">
+                      <p className="text-sm font-semibold text-white">{t.trabajador || 'Cliente'}</p>
+                      <p className="text-xs text-slate-500">
+                        {t.nota ? t.nota : 'Trabajo registrado'} ·{' '}
+                        {new Date(t.fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-400 ring-1 ring-emerald-500/30">
+                      {COP(t.total)}
+                    </span>
+                    {estadoBadge(t)}
+                    {t.aprobado && t.estado === 'Aprobado' && (
+                      <button
+                        onClick={() => marcarPagado(t.id)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-blue-600/15 px-3 py-1.5 text-xs font-bold text-blue-300 ring-1 ring-blue-500/40 transition hover:bg-blue-600 hover:text-white"
+                      >
+                        <FiCheckCircle size={13} /> Cobrar
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Divisor */}
+          <div className="border-t border-white/10" />
+
+          {/* Mitad inferior: solo valecitos APROBADOS del día */}
+          <div className="flex flex-col overflow-hidden" style={{ height: '220px' }}>
+            <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Registro del día · {visibles.filter((c) => c.aprobado).length} aprobados
+              </p>
+            </div>
+            <ul className="flex-1 divide-y divide-white/5 overflow-y-auto">
+              {visibles.filter((c) => c.aprobado).length === 0 && (
+                <li className="px-5 py-6 text-center text-xs text-slate-500">Sin aprobados en esta fecha.</li>
+              )}
+              {visibles.filter((c) => c.aprobado).map((c) => (
+                <li key={c.id} className="flex items-center gap-3 px-5 py-2.5 transition hover:bg-white/[0.03]">
+                  <span className="rounded-lg bg-blue-600/10 px-2 py-0.5 font-mono text-[10px] font-bold text-blue-300 ring-1 ring-blue-500/25">{c.id}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-white">{COP(c.total)}</p>
+                    <p className="text-[10px] text-slate-500">Aprobado{c.nota && ` · ${c.nota}`}</p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-black text-emerald-400 ring-1 ring-emerald-500/30">
-                    S/ {t.total.toFixed(2)}
-                  </span>
-                  {estadoBadge(t)}
-                  {t.aprobado && t.estado === 'Aprobado' && (
-                    <button
-                      onClick={() => marcarPagado(t.id)}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-blue-600/15 px-3 py-1.5 text-xs font-bold text-blue-300 ring-1 ring-blue-500/40 transition hover:bg-blue-600 hover:text-white"
-                    >
-                      <FiCheckCircle size={13} /> Cobrar
-                    </button>
-                  )}
+                  <span className="shrink-0 text-xs font-black text-emerald-400">+{COP(c.ganancia)}</span>
                 </li>
               ))}
             </ul>
-          )}
+          </div>
         </div>
       </div>
+
+      {/* Flotante: desglose de ganancias por digitador del día */}
+      {mostrarDigitadores && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setMostrarDigitadores(false)}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-white/5 px-5 py-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
+                <FiPercent size={16} />
+              </span>
+              <div>
+                <h3 className="font-bold text-white">Ganancias digitadores</h3>
+                <p className="text-xs text-slate-400">
+                  {diaFiltro} · {digitadoresDia.length} digitador{digitadoresDia.length !== 1 ? 'es' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setMostrarDigitadores(false)}
+                aria-label="Cerrar"
+                className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+
+            {/* Lista de digitadores */}
+            <ul className="max-h-80 divide-y divide-white/5 overflow-y-auto">
+              {digitadoresDia.length === 0 && (
+                <li className="px-5 py-10 text-center text-sm text-slate-500">
+                  No hay valecitos aprobados en esta fecha.
+                </li>
+              )}
+              {digitadoresDia.map((d, i) => (
+                <li key={d.nombre} className="flex items-center gap-4 px-5 py-3.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600/20 text-sm font-black text-emerald-300 ring-1 ring-emerald-500/30">
+                    {d.nombre.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-white">{d.nombre}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {d.cantidad} valecito{d.cantidad !== 1 ? 's' : ''} · Total trabajado: {COP(d.total)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-black text-emerald-400">{COP(d.ganancia)}</span>
+                </li>
+              ))}
+            </ul>
+
+            {/* Footer con total */}
+            <div className="flex items-center justify-between border-t border-white/5 px-5 py-4">
+              <span className="text-xs font-semibold text-slate-400">Total digitadores</span>
+              <span className="text-base font-black text-emerald-400">{COP(totalGanancias)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Flotante: registrar comisión */}
       {mostrarComision && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onClick={() => setMostrarComision(false)}
+          onClick={() => { setMostrarComision(false); setFormCom({ total: '', totalDisplay: '', nota: '' }) }}
         >
           <form
             onSubmit={registrarComision}
@@ -327,7 +438,7 @@ export default function DigitHistorial() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
                 <FiPercent size={18} />
               </span>
               <div>
@@ -336,7 +447,7 @@ export default function DigitHistorial() {
               </div>
               <button
                 type="button"
-                onClick={() => setMostrarComision(false)}
+                onClick={() => { setMostrarComision(false); setFormCom({ total: '', totalDisplay: '', nota: '' }) }}
                 aria-label="Cerrar"
                 className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
               >
@@ -347,9 +458,13 @@ export default function DigitHistorial() {
             <div>
               <label className="label-form">Trabajador</label>
               <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-night-800 px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-xs font-bold text-blue-300 ring-1 ring-blue-500/40">
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </span>
+                {avatar ? (
+                  <img src={avatar} alt="Avatar" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-blue-500/40" />
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-xs font-bold text-blue-300 ring-1 ring-blue-500/40">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                )}
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{user?.name || 'Usuario'}</p>
                   <p className="truncate text-[11px] text-slate-500">{user?.email || 'cuenta@impulsa.app'}</p>
@@ -361,24 +476,30 @@ export default function DigitHistorial() {
             </div>
 
             <div>
-              <label className="label-form">Dinero del trabajo (S/) *</label>
+              <label className="label-form">Dinero del trabajo (COP) *</label>
               <input
-                type="number"
-                step="0.10"
-                min="0"
-                value={formCom.total}
-                onChange={(e) => setFormCom({ ...formCom, total: e.target.value })}
-                placeholder="Ej. 1000"
+                type="text"
+                inputMode="numeric"
+                value={formCom.totalDisplay || ''}
+                onChange={(e) => {
+                  // Solo dígitos
+                  const raw = e.target.value.replace(/\D/g, '')
+                  const num = Number(raw) || 0
+                  // Formato con puntos de miles
+                  const display = raw ? new Intl.NumberFormat('es-CO').format(num) : ''
+                  setFormCom({ ...formCom, total: raw, totalDisplay: display })
+                }}
+                placeholder="Ej. 10.000"
                 className="input-field !border-emerald-500/30 focus:!ring-emerald-500/30"
               />
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-amber-500/5 px-3 py-2.5 ring-1 ring-amber-500/25">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Papelería · 50%</p>
-                  <p className="text-lg font-black tabular-nums text-amber-300">S/ {mitad.toFixed(2)}</p>
+                  <p className="text-lg font-black tabular-nums text-amber-300">{COP(mitad)}</p>
                 </div>
                 <div className="rounded-xl bg-emerald-500/5 px-3 py-2.5 ring-1 ring-emerald-500/25">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Digitador · 50%</p>
-                  <p className="text-lg font-black tabular-nums text-emerald-300">S/ {mitad.toFixed(2)}</p>
+                  <p className="text-lg font-black tabular-nums text-emerald-300">{COP(mitad)}</p>
                 </div>
               </div>
             </div>
@@ -394,7 +515,7 @@ export default function DigitHistorial() {
             </div>
 
             <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
-              <button type="button" onClick={() => setMostrarComision(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">
+              <button type="button" onClick={() => { setMostrarComision(false); setFormCom({ total: '', totalDisplay: '', nota: '' }) }} className="btn-ghost !px-5 !py-2.5 !text-xs">
                 Cancelar
               </button>
               <button type="submit" className="btn-primary !px-5 !py-2.5 !text-xs">

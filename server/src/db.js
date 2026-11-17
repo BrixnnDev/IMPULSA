@@ -39,6 +39,8 @@ export async function initDb() {
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        apellido TEXT DEFAULT '',
+        cedula TEXT DEFAULT '',
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         telefono TEXT DEFAULT '',
@@ -82,6 +84,7 @@ export async function initDb() {
       CREATE TABLE IF NOT EXISTS carpetas (
         id TEXT PRIMARY KEY,
         nombre TEXT NOT NULL UNIQUE,
+        padre TEXT DEFAULT '',
         creado_por TEXT DEFAULT '',
         fecha TEXT NOT NULL
       );
@@ -182,10 +185,40 @@ CREATE TABLE IF NOT EXISTS access_keys (
     } catch (e) {
       console.warn('[db] migracion avatar_url:', e.message)
     }
+    // Columna short_id: ID numérico de 8 dígitos único por usuario
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS short_id TEXT DEFAULT ''`)
+      // Backfill: asignar short_id a usuarios que no tienen uno
+      const sinId = await client.query(`SELECT id FROM users WHERE short_id IS NULL OR short_id = ''`)
+      for (const row of sinId.rows) {
+        const sid = String(Math.floor(10000000 + Math.random() * 90000000))
+        await client.query(`UPDATE users SET short_id = $1 WHERE id = $2`, [sid, row.id])
+      }
+    } catch (e) {
+      console.warn('[db] migracion short_id:', e.message)
+    }
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS apellido TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion users.apellido:', e.message)
+    }
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cedula TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion users.cedula:', e.message)
+    }
     try {
       await client.query(`ALTER TABLE keys ADD COLUMN IF NOT EXISTS user_id TEXT DEFAULT ''`)
     } catch (e) {
       console.warn('[db] migracion keys.user_id:', e.message)
+    }
+
+    // Migración: carpetas anidadas (padre). Las carpetas de usuario viven dentro
+    // de la carpeta raíz "Usuarios".
+    try {
+      await client.query(`ALTER TABLE carpetas ADD COLUMN IF NOT EXISTS padre TEXT DEFAULT ''`)
+    } catch (e) {
+      console.warn('[db] migracion carpetas.padre:', e.message)
     }
 
     // Migraciones del flujo de aprobación de comisiones/valecitos
@@ -250,8 +283,40 @@ CREATE TABLE IF NOT EXISTS access_keys (
       console.warn('[db] limpieza credenciales antiguas:', e.message)
     }
 
-    // Carpetas iniciales por defecto — eliminado: el usuario gestiona sus propias carpetas
-    console.log('[db] Tablas listas. Sin carpetas por defecto.')
+    // Carpeta raíz "Usuarios": dentro de ella se crean las carpetas personales
+    // de cada usuario que se registra.
+    try {
+      const existeUsuarios = await client.query(`SELECT 1 FROM carpetas WHERE nombre = 'Usuarios'`)
+      if (!existeUsuarios.rowCount) {
+        await client.query(
+          `INSERT INTO carpetas (id, nombre, padre, creado_por, fecha) VALUES ($1,'Usuarios','','',$2)`,
+          [`carp-usuarios`, new Date().toISOString()],
+        )
+        console.log('[db] Carpeta raíz "Usuarios" creada.')
+      }
+    } catch (e) {
+      console.warn('[db] carpeta Usuarios:', e.message)
+    }
+
+    // Migración única: mueve a "Usuarios" las carpetas personales ya existentes
+    // (creadas antes de la estructura anidada). Son las que llevan el nombre de
+    // un usuario registrado.
+    try {
+      const movidas = await client.query(
+        `UPDATE carpetas c SET padre = 'Usuarios'
+         WHERE (c.padre IS NULL OR c.padre = '')
+           AND c.nombre <> 'Usuarios'
+           AND EXISTS (SELECT 1 FROM users u WHERE u.name = c.nombre)
+         RETURNING c.nombre`,
+      )
+      if (movidas.rowCount) {
+        console.log(`[db] Carpetas de usuario movidas a "Usuarios": ${movidas.rows.map((r) => r.nombre).join(', ')}`)
+      }
+    } catch (e) {
+      console.warn('[db] migracion carpetas -> Usuarios:', e.message)
+    }
+
+    console.log('[db] Tablas listas.')
 
     console.log('[db] PostgreSQL conectado, tablas (persistentes) listas.')
   } finally {

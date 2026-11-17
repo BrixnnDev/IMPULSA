@@ -2,7 +2,7 @@ import { FiDollarSign, FiTrendingUp, FiPackage, FiAlertTriangle, FiShoppingCart 
 import { Link } from 'react-router-dom'
 import { productosSeed, ventasSeed, ventasSemana } from '../../data/mockData'
 
-const fmt = (n) => `S/ ${n.toFixed(2)}`
+const fmt = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
 export default function PosInicio() {
   const stockBajo = productosSeed.filter((p) => p.stock <= p.stockMinimo)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { FiUploadCloud, FiCheckCircle, FiPlus, FiX } from 'react-icons/fi'
 import { MdDocumentScanner } from 'react-icons/md'
 import { productosSeed } from '../../data/mockData'
@@ -45,8 +45,8 @@ export default function DigitProductos() {
     <div className="space-y-6">
       <div>
         <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-            <MdDocumentScanner size={20} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+            <MdDocumentScanner size={16} />
           </span>
           Escanear / Digitalizar
         </h2>
@@ -66,7 +66,7 @@ export default function DigitProductos() {
         {/* Formulario de digitación */}
         <form onSubmit={handleSubmit} className="panel h-fit space-y-4 p-6 xl:sticky xl:top-24">
           <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/40 bg-blue-600/15 text-blue-400">
               <FiUploadCloud size={18} />
             </span>
             <h3 className="font-bold text-white">Nuevo registro</h3>
@@ -146,8 +146,8 @@ export default function DigitProductos() {
                   </p>
                 </div>
                 <div className="text-right text-xs">
-                  <p className="text-slate-500">Compra: S/ {Number(p.precioCompra).toFixed(2)}</p>
-                  <p className="font-bold text-white">Venta: S/ {Number(p.precioVenta).toFixed(2)}</p>
+                  <p className="text-slate-500">Compra: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(p.precioCompra)}</p>
+                  <p className="font-bold text-white">Venta: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(p.precioVenta)}</p>
                 </div>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-bold ${

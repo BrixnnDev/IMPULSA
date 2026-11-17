@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { FiSearch, FiPlus, FiMinus, FiAlertTriangle, FiCheckCircle, FiX } from 'react-icons/fi'
 import { productosSeed } from '../../data/mockData'
 
-const fmt = (n) => `S/ ${n.toFixed(2)}`
+const fmt = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 const emptyForm = {
   codigo: '',
   nombre: '',

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { FiLayers, FiPenTool, FiFileText, FiDollarSign } from 'react-icons/fi'
 
 const CARDS = [
@@ -33,8 +33,8 @@ export default function DigitFormatos() {
     <div className="space-y-6">
       <div>
         <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-            <FiLayers size={20} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+            <FiLayers size={16} />
           </span>
           Formatos
         </h2>

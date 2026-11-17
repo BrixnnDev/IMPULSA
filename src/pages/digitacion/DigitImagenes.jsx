@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { FiImage, FiPlus, FiCheckCircle, FiX, FiDownload } from 'react-icons/fi'
 
 const seedImagenes = [
@@ -47,8 +47,8 @@ export default function DigitImagenes() {
     <div className="space-y-6">
       <div>
         <h2 className="flex items-center gap-2.5 text-2xl font-black text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30">
-            <FiImage size={20} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/30 bg-blue-600/15 text-blue-400">
+            <FiImage size={16} />
           </span>
           Imágenes
         </h2>
@@ -68,7 +68,7 @@ export default function DigitImagenes() {
         {/* Formulario */}
         <form onSubmit={agregar} className="panel h-fit space-y-4 p-6 xl:sticky xl:top-24">
           <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/40">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/40 bg-blue-600/15 text-blue-400">
               <FiImage size={18} />
             </span>
             <h3 className="font-bold text-white">Registrar imagen</h3>

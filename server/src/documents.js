@@ -52,15 +52,16 @@ export function documentsRouter(io) {
   })
 
   r.post('/carpetas', async (req, res) => {
-    const { nombre, creado_por } = req.body
+    const { nombre, creado_por, padre } = req.body
     if (!nombre || !String(nombre).trim()) return res.status(400).json({ ok: false, error: 'Nombre requerido.' })
     try {
       const id = `carp-${randomUUID().slice(0, 8)}`
+      const padreFinal = String(padre || '').trim()
       await pool.query(
-        `INSERT INTO carpetas (id, nombre, creado_por, fecha) VALUES ($1,$2,$3,$4)`,
-        [id, String(nombre).trim(), creado_por || '', new Date().toISOString()],
+        `INSERT INTO carpetas (id, nombre, padre, creado_por, fecha) VALUES ($1,$2,$3,$4,$5)`,
+        [id, String(nombre).trim(), padreFinal, creado_por || '', new Date().toISOString()],
       )
-      io.emit('doc:carpeta', { id, nombre, creado_por, fecha: new Date().toISOString() })
+      io.emit('doc:carpeta', { id, nombre, padre: padreFinal, creado_por, fecha: new Date().toISOString() })
       res.json({ ok: true, id })
     } catch (e) {
       if (e.code === '23505') return res.status(400).json({ ok: false, error: 'La carpeta ya existe.' })
@@ -71,10 +72,22 @@ export function documentsRouter(io) {
   r.delete('/carpetas/:id', async (req, res) => {
     try {
       const carp = await pool.query('SELECT * FROM carpetas WHERE id=$1', [req.params.id])
-      if (carp.rows.length) {
-        await pool.query('DELETE FROM documents WHERE carpeta=$1', [carp.rows[0].nombre])
-        await pool.query('DELETE FROM carpetas WHERE id=$1', [req.params.id])
+      if (!carp.rows.length) return res.json({ ok: true })
+      const objetivo = carp.rows[0]
+      // La carpeta raíz "Usuarios" no se puede eliminar.
+      if (objetivo.nombre === 'Usuarios') {
+        return res.status(400).json({ ok: false, error: 'Esta carpeta no se puede eliminar.' })
       }
+      // Eliminar también las subcarpetas (y sus documentos) de forma recursiva.
+      const aBorrar = [objetivo.nombre]
+      let pendientes = [objetivo.nombre]
+      while (pendientes.length) {
+        const hijos = await pool.query('SELECT nombre FROM carpetas WHERE padre = ANY($1)', [pendientes])
+        pendientes = hijos.rows.map((h) => h.nombre).filter((n) => !aBorrar.includes(n))
+        aBorrar.push(...pendientes)
+      }
+      await pool.query('DELETE FROM documents WHERE carpeta = ANY($1)', [aBorrar])
+      await pool.query('DELETE FROM carpetas WHERE nombre = ANY($1)', [aBorrar])
       res.json({ ok: true })
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message })

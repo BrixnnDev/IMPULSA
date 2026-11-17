@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import GuestRoute from './components/GuestRoute'
 import DashboardLayout from './components/DashboardLayout'
+import ProfileBubble from './components/ProfileBubble'
 
 import Landing from './pages/Landing'
 import AuthPage from './pages/AuthPage'
@@ -81,6 +82,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ProfileBubble />
     </AuthProvider>
   )
 }

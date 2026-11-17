@@ -28,18 +28,41 @@ const cfg = {
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '15mb' }))
 
 const server = http.createServer(app)
 const io = new Server(server, { cors: { origin: '*' } })
 
+// Presencia: usuarios conectados (socket.id -> datos del usuario)
+const usuariosOnline = new Map()
+
+function emitirUsuariosOnline() {
+  const unicos = new Map()
+  for (const u of usuariosOnline.values()) {
+    if (u && u.id) unicos.set(u.id, u)
+  }
+  io.emit('users:online', Array.from(unicos.values()))
+}
+
 io.on('connection', (socket) => {
   console.log('[ws] cliente conectado:', socket.id)
+  socket.on('user:online', (d) => {
+    if (!d || !d.id) return
+    usuariosOnline.set(socket.id, {
+      id: d.id,
+      name: d.name || '',
+      email: d.email || '',
+      rol: d.rol || '',
+      avatar_url: d.avatar_url || '',
+    })
+    emitirUsuariosOnline()
+  })
   socket.on('pc:register', (d) => {
     const nombre = (d && (d.pcName || d.pc_name)) || ''
     bindPcSocket(nombre, socket.id)
   })
   socket.on('disconnect', () => {
+    if (usuariosOnline.delete(socket.id)) emitirUsuariosOnline()
     const pcName = unbindPcSocket(socket.id)
     if (pcName) markPcOffline(pcName)
   })})
