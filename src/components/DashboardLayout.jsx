@@ -707,9 +707,6 @@ export default function DashboardLayout({ profile }) {
                 <p className="truncate font-bold text-white">{user?.name || 'Usuario'}</p>
                 <p className="truncate text-xs text-slate-400">{user?.email || '—'}</p>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <span className="rounded-lg bg-night-800 px-2 py-0.5 font-mono text-[10px] font-bold text-blue-300 ring-1 ring-blue-500/25">
-                    ID: {user?.short_id || user?.id?.replace(/^u-/, '').slice(0, 8).toUpperCase() || '????????'}
-                  </span>
                   <span className="inline-block rounded-full bg-blue-600/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300 ring-1 ring-blue-500/30">
                     {profile === 'pos' ? 'POS · Vendedor' : isModerador ? 'Moderador' : 'Digitación'}
                   </span>
