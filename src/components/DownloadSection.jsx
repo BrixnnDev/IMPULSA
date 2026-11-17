@@ -179,7 +179,7 @@ export default function DownloadSection() {
               </a>
 
               <a
-                href="https://github.com/BrixnnDev/IMPULSA/releases/latest/download/IMPULSA-Agent_0.1.0_x64-setup.exe"
+                href="/agent/IMPULSA-Agent.exe"
                 download
                 className="group flex items-start gap-4 rounded-xl border border-white/10 bg-night-800 p-5 transition hover:border-emerald-500/40 hover:bg-emerald-500/5"
               >

@@ -24,7 +24,7 @@ import { MdConfirmationNumber } from 'react-icons/md'
 import { useAuth } from '../context/AuthContext'
 import useAvatar from '../hooks/useAvatar'
 import RocketLogo from './RocketLogo'
-import { FiDollarSign, FiPhone, FiSend, FiArrowLeft, FiAlertCircle } from 'react-icons/fi'
+import { FiDollarSign, FiPhone, FiSend, FiArrowLeft, FiAlertCircle, FiHash } from 'react-icons/fi'
 import { io } from 'socket.io-client'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -727,6 +727,13 @@ export default function DashboardLayout({ profile }) {
             <div className="border-t border-white/5 pt-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Información</p>
               <dl className="space-y-2.5 text-sm">
+                <div className="flex items-center gap-3 rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
+                  <FiHash size={14} className="shrink-0 text-blue-400" />
+                  <dt className="text-slate-400">ID de usuario</dt>
+                  <dd className="ml-auto truncate font-mono font-bold text-blue-300">
+                    {user?.short_id || user?.id?.replace(/^u-/, '').slice(0, 8).toUpperCase() || '????????'}
+                  </dd>
+                </div>
                 <div className="flex items-center gap-3 rounded-xl bg-night-800 px-4 py-2.5 ring-1 ring-white/5">
                   <FiMail size={14} className="shrink-0 text-blue-400" />
                   <dt className="text-slate-400">Correo</dt>
