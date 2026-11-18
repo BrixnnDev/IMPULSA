@@ -314,6 +314,35 @@ fn load_pairing(storage_dir: &PathBuf) -> (String, String) {
     (pairing, name)
 }
 
+// Heartbeat del agente: solo se envía mientras el proceso esté vivo.
+// Al cerrarse, el backend marca la PC offline en ~45 segundos.
+fn start_heartbeat(storage_dir: PathBuf) {
+    std::thread::spawn(move || {
+        let api = load_scan_config()
+            .servidor
+            .unwrap_or_else(|| DEFAULT_API.to_string());
+        let (pairing, name) = load_pairing(&storage_dir);
+        let pc = if name.is_empty() { pairing.clone() } else { name.clone() };
+        if pc.is_empty() {
+            return;
+        }
+        loop {
+            let payload = serde_json::json!({
+                "pc": pc,
+                "pc_name": name,
+                "pairing_code": pairing,
+                "ip": get_local_ip_raw(),
+                "mac": get_mac_address_raw(),
+                "sistema": get_os_version(),
+                "ubicacion": "",
+            })
+            .to_string();
+            post_json("/api/pc/heartbeat", &payload, &api);
+            std::thread::sleep(Duration::from_secs(15));
+        }
+    });
+}
+
 // Reporta las impresiones reales de Windows al backend.
 fn start_print_watcher(storage_dir: PathBuf) {
     std::thread::spawn(move || {
@@ -335,7 +364,12 @@ fn start_print_watcher(storage_dir: PathBuf) {
         let dir = storage_dir.to_string_lossy().replace('\'', "''");
         let script = format!(r#"
 $script:last = 0
+$script:lines = @()
+$evtError = ''
+$cimError = ''
+$wmiError = ''
 $lastFile = Join-Path '{0}' 'last_print.json'
+$diagFile = Join-Path '{0}' 'print_diag.json'
 if (Test-Path $lastFile) {{
   try {{ $script:last = [long](Get-Content $lastFile -Raw) }} catch {{}}
 }} else {{
@@ -345,46 +379,61 @@ if (Test-Path $lastFile) {{
   }} catch {{}}
   Set-Content -Path $lastFile -Value $script:last -ErrorAction SilentlyContinue
 }}
-$lines = @()
-try {{ wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null }} catch {{}}
+function Add-ImpulsaJob {{
+  param($doc, $user, $printer, $pages, $id, $time)
+  if ([string]::IsNullOrWhiteSpace([string]$doc)) {{ return }}
+  $script:lines += [pscustomobject]@{{
+    evento_id = [string]$id
+    documento = [string]$doc
+    usuario = [string]$user
+    impresora = [string]$printer
+    paginas = [int]$pages
+    fecha = ([datetime]$time).ToUniversalTime().ToString('o')
+  }} | ConvertTo-Json -Compress
+}}
+try {{ wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null }} catch {{ $evtError = $_.Exception.Message }}
 try {{
   Get-WinEvent -FilterHashtable @{{ LogName='Microsoft-Windows-PrintService/Operational'; Id=307 }} -ErrorAction Stop |
     Where-Object {{ $_.RecordId -gt $script:last }} |
     ForEach-Object {{
       $e = $_
-      $lines += [pscustomobject]@{{
-        evento_id = "EVT-$($e.RecordId)"
-        documento = [string]$e.Properties[0].Value
-        usuario = [string]$e.Properties[1].Value
-        impresora = [string]$e.Properties[2].Value
-        paginas = [int]$e.Properties[4].Value
-        fecha = $e.TimeCreated.ToUniversalTime().ToString('o')
-      }} | ConvertTo-Json -Compress
+      Add-ImpulsaJob -doc $e.Properties[0].Value -user $e.Properties[1].Value -printer $e.Properties[2].Value -pages $e.Properties[4].Value -id ("EVT-$($e.RecordId)") -time $e.TimeCreated
       $script:last = $e.RecordId
     }}
   Set-Content -Path $lastFile -Value $script:last -ErrorAction SilentlyContinue
-}} catch {{}}
-if ($lines.Count -eq 0) {{
+}} catch {{ $evtError = $_.Exception.Message }}
+if ($script:lines.Count -eq 0) {{
+  try {{
+    Get-CimInstance Win32_PrintJob -ErrorAction Stop | ForEach-Object {{
+      $jobName = [string]$_.Name
+      $jobId = if ($jobName -match ',(\d+)$') {{ $matches[1] }} else {{ [string]$_.JobId }}
+      Add-ImpulsaJob -doc $_.Document -user $_.Owner -printer (($jobName -split ',')[0]) -pages $_.TotalPages -id ("WMI-$jobId") -time $_.TimeSubmitted
+    }}
+  }} catch {{ $cimError = $_.Exception.Message }}
+}}
+if ($script:lines.Count -eq 0) {{
   try {{
     Get-WmiObject -Class Win32_PrintJob -ErrorAction Stop | ForEach-Object {{
       $jobName = [string]$_.Name
       $jobId = if ($jobName -match ',(\d+)$') {{ $matches[1] }} else {{ [string]$_.JobId }}
-      $lines += [pscustomobject]@{{
-        evento_id = "WMI-$jobId"
-        documento = [string]$_.Document
-        usuario = [string]$_.Owner
-        impresora = ($jobName -split ',')[0]
-        paginas = [int]$_.TotalPages
-        fecha = ([datetime]$_.TimeSubmitted).ToUniversalTime().ToString('o')
-      }} | ConvertTo-Json -Compress
+      Add-ImpulsaJob -doc $_.Document -user $_.Owner -printer (($jobName -split ',')[0]) -pages $_.TotalPages -id ("WMI-$jobId") -time $_.TimeSubmitted
     }}
-  }} catch {{}}
+  }} catch {{ $wmiError = $_.Exception.Message }}
 }}
-$lines | ForEach-Object {{ Write-Output $_ }}
+$diag = [pscustomobject]@{{
+  hora = (Get-Date).ToUniversalTime().ToString('o')
+  eventos = $script:lines.Count
+  last = $script:last
+  evt = $evtError
+  cim = $cimError
+  wmi = $wmiError
+}} | ConvertTo-Json -Compress
+Set-Content -Path $diagFile -Value $diag -ErrorAction SilentlyContinue
+$script:lines | ForEach-Object {{ Write-Output $_ }}
 "#, dir);
 
         loop {
-            std::thread::sleep(Duration::from_secs(5));
+            std::thread::sleep(Duration::from_secs(2));
             let mut cmd = Command::new("powershell.exe");
             cmd.arg("-NoProfile")
                 .arg("-NonInteractive")
@@ -440,51 +489,41 @@ $lines | ForEach-Object {{ Write-Output $_ }}
     });
 }
 
-fn sanitize_bat_value(value: &str) -> String {
-    value
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':' | '/' | '@'))
-        .collect()
-}
-
-#[tauri::command]
-fn install_startup_script(
-    server_url: String,
-    pairing_code: String,
-    pc_name: String,
-) -> Result<(), String> {
+// El heartbeat anterior era un .bat independiente: marcaba la PC como en línea
+// aunque el agente estuviera cerrado. Se reemplaza por un arranque directo del
+// agente, que es quien ahora envía el heartbeat mientras está vivo.
+fn ensure_agent_startup() -> Result<(), String> {
     use std::env;
     let startup_dir = env::var("APPDATA")
         .map(|appdata| PathBuf::from(appdata).join("Microsoft").join("Windows").join("Start Menu").join("Programs").join("Startup"))
         .map_err(|e| format!("Failed to get APPDATA: {}", e))?;
 
-    let safe_url = sanitize_bat_value(server_url.trim_end_matches('/'));
-    let safe_code = sanitize_bat_value(&pairing_code);
-    let safe_name = sanitize_bat_value(&pc_name);
+    let legacy = startup_dir.join("impulsa_heartbeat.bat");
+    if legacy.exists() {
+        fs::remove_file(&legacy).map_err(|e| e.to_string())?;
+    }
 
-    let heartbeat_script = format!(
-        r#"@echo off
-:loop
-curl -s -X POST "{}/api/pc/heartbeat" -H "Content-Type: application/json" -d "{{\"pc_name\":\"{}\",\"pairing_code\":\"{}\"}}" > nul 2>&1
-timeout /t 30 /nobreak > nul
-goto loop"#,
-        safe_url, safe_name, safe_code
-    );
-
-    let bat_path = startup_dir.join("impulsa_heartbeat.bat");
-    fs::write(&bat_path, heartbeat_script).map_err(|e| e.to_string())?;
-
-    let bat_full = bat_path.to_string_lossy().to_string();
+    let exe = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "C:\\Program Files\\IMPULSA-Agent\\app.exe".to_string());
+    let exe_vbs = exe.replace('"', "\"\"");
     let vbs_script = format!(
         r#"Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run Chr(34) & "{}" & Chr(34), 0, False"#,
-        bat_full
+        exe_vbs
     );
-
     let vbs_path = startup_dir.join("impulsa_run.vbs");
     fs::write(&vbs_path, vbs_script).map_err(|e| e.to_string())?;
-
     Ok(())
+}
+
+#[tauri::command]
+fn install_startup_script(
+    _server_url: String,
+    _pairing_code: String,
+    _pc_name: String,
+) -> Result<(), String> {
+    ensure_agent_startup()
 }
 
 #[tauri::command]
@@ -580,6 +619,8 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
+            let _ = ensure_agent_startup();
+            start_heartbeat(data_dir.clone());
             start_scan_watcher(data_dir.clone());
             start_print_watcher(data_dir);
 
