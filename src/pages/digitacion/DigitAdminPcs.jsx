@@ -10,7 +10,6 @@ export default function DigitAdminPcs() {
   const [pcs, setPcs] = useState([])
   const [usuarios, setUsuarios] = useState([])
   const [formOpen, setFormOpen] = useState(false)
-  const [nombre, setNombre] = useState('')
   const [usuarioId, setUsuarioId] = useState('')
   const [codigoModal, setCodigoModal] = useState(null)
   const [eliminarId, setEliminarId] = useState(null)
@@ -19,6 +18,7 @@ export default function DigitAdminPcs() {
   const socketRef = useRef(null)
   const codigoModalRef = useRef(null)
   codigoModalRef.current = codigoModal
+  const usuarioSeleccionado = usuarios.find((u) => u.id === usuarioId) || null
 
   useEffect(() => {
     if (!isAdmin) return
@@ -64,19 +64,18 @@ export default function DigitAdminPcs() {
   }
 
   const crearPC = async () => {
-    if (!nombre.trim()) return
+    if (!usuarioId) return
     try {
       const res = await fetch(`${API}/api/pc/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: nombre.trim(), usuario_id: usuarioId || undefined }),
+        body: JSON.stringify({ usuario_id: usuarioId, nombre: usuarioSeleccionado?.name }),
       })
       const data = await res.json()
       if (data.ok) {
         setPcs((prev) => [...prev, data.pc])
         setCodigoModal({ ...data.pc, _fase: 'codigo' })
         setFormOpen(false)
-        setNombre('')
         setUsuarioId('')
       }
     } catch (e) {
@@ -200,32 +199,37 @@ export default function DigitAdminPcs() {
         )}
       </div>
 
-      {/* Formulario: ingresar nombre → Verificar */}
+      {/* Formulario: seleccionar usuario → Verificar */}
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setFormOpen(false)}>
           <div className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-night-850 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-white/5 pb-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/40 bg-blue-600/15 text-blue-400"><FiMonitor size={18} /></span>
-              <div><h3 className="font-bold text-white">Agregar PC</h3><p className="text-xs text-slate-400">Ingresa el nombre de la persona o computadora.</p></div>
+              <div><h3 className="font-bold text-white">Agregar PC</h3><p className="text-xs text-slate-400">Selecciona el usuario dueño de la PC.</p></div>
               <button onClick={() => setFormOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
             </div>
             <div>
-              <label className="label-form">Nombre *</label>
-              <input autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && crearPC()} placeholder="Ej. PC de María Victoria" className="input-field" />
-            </div>
-            <div>
-              <label className="label-form">Usuario vinculado</label>
-              <select value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} className="input-field">
-                <option value="">Sin usuario</option>
+              <label className="label-form">Usuario *</label>
+              <select autoFocus value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} className="input-field">
+                <option value="" disabled>Selecciona un usuario</option>
                 {usuarios.map((u) => (
                   <option key={u.id} value={u.id}>{u.name} · {u.email}{u.rol === 'admin' ? ' (admin)' : ''}</option>
                 ))}
               </select>
-              <p className="mt-1.5 text-[11px] text-slate-500">La PC aparecerá en la carpeta de este usuario y sus impresiones se le atribuirán a él.</p>
+              {usuarioSeleccionado && (
+                <div className="mt-3 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-600/5 p-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600/15 text-blue-400"><FiUser size={16} /></span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-white">{usuarioSeleccionado.name}</p>
+                    <p className="truncate text-[11px] text-slate-400">{usuarioSeleccionado.email}</p>
+                  </div>
+                </div>
+              )}
+              <p className="mt-1.5 text-[11px] text-slate-500">El nombre y el correo se toman de la cuenta elegida. La PC aparecerá en la carpeta de ese usuario.</p>
             </div>
             <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
               <button onClick={() => setFormOpen(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
-              <button onClick={crearPC} className="btn-primary !px-5 !py-2.5 !text-xs"><FiCheckCircle /> Verificar</button>
+              <button onClick={crearPC} disabled={!usuarioId} className="btn-primary !px-5 !py-2.5 !text-xs disabled:cursor-not-allowed disabled:opacity-40"><FiCheckCircle /> Verificar</button>
             </div>
           </div>
         </div>

@@ -27,22 +27,27 @@ export function pcRouter(io) {
   ioRef = io
   const r = Router()
 
-  // Admin crea carpeta, opcionalmente vinculada a un usuario
+  // Admin crea carpeta: el nombre y correo salen del usuario seleccionado
   r.post('/register', async (req, res) => {
     try {
       const { nombre, usuario_id } = req.body
-      if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta el nombre.' })
+      if (!usuario_id && !nombre?.trim()) {
+        return res.status(400).json({ ok: false, error: 'Selecciona un usuario.' })
+      }
 
-      let responsable = nombre.trim()
+      let etiqueta = (nombre || '').trim()
+      let responsable = etiqueta
       let email = ''
       let avatar_url = ''
       let rol = 'digitador'
       let uid = ''
+
       if (usuario_id) {
         const uq = await pool.query('SELECT id, name, email, avatar_url, rol FROM users WHERE id = $1', [usuario_id])
         const u = uq.rows[0]
         if (!u) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
         uid = u.id
+        etiqueta = u.name
         responsable = u.name
         email = u.email || ''
         avatar_url = u.avatar_url || ''
@@ -55,9 +60,9 @@ export function pcRouter(io) {
       await pool.query(
         `INSERT INTO pcs (id, etiqueta, responsable, email, avatar_url, rol, usuario_id, codigo, emparejada, fecha_creacion)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,FALSE,$9)`,
-        [id, nombre.trim(), responsable, email, avatar_url, rol, uid, codigo, creado],
+        [id, etiqueta, responsable, email, avatar_url, rol, uid, codigo, creado],
       )
-      const pc = { id, etiqueta: nombre.trim(), responsable, email, avatar_url, rol, usuario_id: uid, ip: '', mac: '', sistema: '', ubicacion: '', codigo, emparejada: false, fecha_creacion: creado }
+      const pc = { id, etiqueta, responsable, email, avatar_url, rol, usuario_id: uid, ip: '', mac: '', sistema: '', ubicacion: '', codigo, emparejada: false, fecha_creacion: creado }
       console.log(`[pc] Carpeta creada: ${pc.etiqueta} → ${responsable} (${uid || 'sin usuario'}) → código: ${codigo}`)
       res.json({ ok: true, pc })
     } catch (e) {
