@@ -1,0 +1,60 @@
+name: Compilar agente IMPULSA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent/**'
+      - 'package.json'
+      - 'bun.lock'
+      - '.github/workflows/build-agent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Preparar Rust
+        run: rustup default stable
+
+      - name: Instalar dependencias del agente
+        working-directory: agent
+        run: bun install --frozen-lockfile
+
+      - name: Compilar agente Tauri (NSIS)
+        working-directory: agent
+        run: bunx tauri build --target nsis
+
+      - name: Copiar ejecutable a la carpeta pública
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path 'agent\src-tauri\target\release\bundle\nsis' -Filter '*.exe' -File |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $exe) { throw 'No se generó el instalador NSIS del agente.' }
+          Copy-Item $exe.FullName 'public\agent\IMPULSA-Agent.exe' -Force
+          Write-Host "Agente compilado: $($exe.Name) ($($exe.Length) bytes)"
+
+      - name: Publicar ejecutable en el repositorio
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/agent/IMPULSA-Agent.exe
+          if (git diff --cached --quiet) {
+            Write-Host 'El agente no cambió, no se hace commit.'
+          } else {
+            git commit -m "build: agente Tauri con subida de escaneres [skip ci]"
+            git push origin HEAD:main
+          }
