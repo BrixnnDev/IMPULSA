@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
-import fs from 'fs'
 import { randomUUID } from 'crypto'
+import { pool } from './db.js'
 
+// Los escaneos se guardan en la base de datos: el disco de Render es efímero
+// y se borra en cada despliegue, por eso el historial no puede vivir ahí.
 const CARPETA_RED = process.env.SCAN_FOLDER || ''
-const CARPETA_LOCAL = path.join(process.cwd(), 'uploads', 'escaner')
-fs.mkdirSync(CARPETA_LOCAL, { recursive: true })
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
 
 function limpiarNombre(nombre) {
   const base = path.basename(nombre || 'escaneo.pdf')
@@ -18,112 +19,118 @@ function nombreBase(nombre) {
   return nombre.replace(/-[0-9a-f]{8}(\.[^.]+)?$/i, (_match, ext) => ext || '')
 }
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, CARPETA_LOCAL),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.pdf'
-    const sinExt = limpiarNombre(path.basename(file.originalname, path.extname(file.originalname)))
-    cb(null, `${sinExt}-${randomUUID().slice(0, 8)}${ext}`)
-  },
-})
-
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } })
-
-function carpetaActiva() {
-  if (CARPETA_RED && fs.existsSync(CARPETA_RED)) return CARPETA_RED
-  return CARPETA_LOCAL
+function filaApi(row) {
+  return {
+    id: row.id,
+    archivo: row.archivo,
+    nombre: row.archivo,
+    size: Number(row.size),
+    fecha: row.fecha,
+    origen: 'red',
+  }
 }
 
-function listar() {
-  const carpeta = carpetaActiva()
-  try {
-    return fs
-      .readdirSync(carpeta)
-      .filter((f) => !f.startsWith('.'))
-      .map((nombre) => {
-        try {
-          const st = fs.statSync(path.join(carpeta, nombre))
-          return {
-            id: `ESC-${nombre.split('-').pop()?.replace(/\..*$/, '') || nombre.slice(0, 8)}`,
-            archivo: nombre,
-            nombre,
-            size: st.size,
-            fecha: st.mtime.toISOString(),
-            origen: carpeta === CARPETA_RED ? 'red' : 'local',
-          }
-        } catch {
-          return null
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  } catch {
-    return []
-  }
+async function listar(limit = 2000, offset = 0) {
+  const q = await pool.query(
+    `SELECT id, archivo, size, fecha FROM scans ORDER BY fecha DESC LIMIT $1 OFFSET $2`,
+    [Math.min(limit, 2000), offset],
+  )
+  return q.rows.map(filaApi)
 }
 
 export function scansRouter(io) {
   const r = Router()
 
-  r.post('/upload', upload.single('file'), (req, res) => {
+  r.post('/upload', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ ok: false, error: 'Falta el archivo (campo "file").' })
 
+    const original = req.file.originalname || 'escaneo.pdf'
+    const base = nombreBase(original)
+    const size = req.file.size
+
     // Varios PC pueden vigilar la misma carpeta compartida: evita duplicados.
-    const existente = listar().find((f) =>
-      f.archivo !== req.file.filename &&
-      nombreBase(f.archivo) === req.file.originalname &&
-      f.size === req.file.size,
+    const existe = await pool.query(
+      `SELECT archivo, size FROM scans WHERE nombre_base = $1 AND size = $2 LIMIT 1`,
+      [base, size],
     )
-    if (existente) {
-      fs.unlinkSync(req.file.path)
-      console.log(`[escaner] duplicado ignorado: ${req.file.originalname}`)
-      return res.json({ ok: true, archivo: existente.archivo, duplicado: true })
+    if (existe.rows.length) {
+      console.log(`[escaner] duplicado ignorado: ${original}`)
+      return res.json({ ok: true, archivo: existe.rows[0].archivo, duplicado: true })
     }
 
-    // Conserva la fecha real del escaneo (no la hora de subida) para que el
-    // historial muestre correctamente los documentos del día.
+    const ext = path.extname(original) || '.pdf'
+    const sinExt = limpiarNombre(path.basename(original, path.extname(original)))
+    const archivo = `${sinExt}-${randomUUID().slice(0, 8)}${ext}`
     const fechaScan = new Date(req.body?.fecha)
-    if (!Number.isNaN(fechaScan.getTime())) {
-      try { fs.utimesSync(req.file.path, fechaScan, fechaScan) } catch { /* ignore */ }
-    }
+    const fecha = Number.isNaN(fechaScan.getTime()) ? new Date() : fechaScan
 
-    const data = listar().find((f) => f.archivo === req.file.filename) || listar()[0] || {}
-    io.emit('scan:new', { ...data, persona: req.body?.persona || '' })
-    console.log(`[escaner] recibido: ${req.file.originalname} (${(req.file.size / 1024).toFixed(0)} KB)`)
-    res.json({ ok: true, archivo: req.file.filename })
+    await pool.query(
+      `INSERT INTO scans (id, archivo, nombre_base, size, fecha, persona, contenido)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        `ESC-${randomUUID().slice(0, 8)}`,
+        archivo,
+        base,
+        size,
+        fecha.toISOString(),
+        req.body?.persona || '',
+        req.file.buffer,
+      ],
+    )
+
+    io.emit('scan:new', {
+      id: `ESC-${archivo.split('-').pop()?.replace(/\..*$/, '') || archivo.slice(0, 8)}`,
+      archivo,
+      nombre: archivo,
+      size,
+      fecha: fecha.toISOString(),
+      origen: 'red',
+      persona: req.body?.persona || '',
+    })
+    console.log(`[escaner] recibido: ${original} (${(size / 1024).toFixed(0)} KB)`)
+    res.json({ ok: true, archivo })
   })
 
-  r.get('/list', (_req, res) => {
-    const limit = Math.min(Number(_req.query.limit) || 200, 2000)
-    const offset = Number(_req.query.offset) || 0
-    const todos = listar()
-    res.json({ total: todos.length, items: todos.slice(offset, offset + limit) })
+  r.get('/list', async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 200, 2000)
+    const offset = Number(req.query.offset) || 0
+    const items = await listar(limit, offset)
+    const total = (await pool.query('SELECT COUNT(*)::int AS n FROM scans')).rows[0].n
+    res.json({ total, items })
   })
 
-  r.get('/list/raw', (_req, res) => res.json(listar()))
+  r.get('/list/raw', async (_req, res) => res.json(await listar()))
 
-  r.get('/file/:nombre', (req, res) => {
+  r.get('/file/:nombre', async (req, res) => {
     const nombre = path.basename(req.params.nombre)
-    const carpeta = carpetaActiva()
-    const ruta = path.join(carpeta, nombre)
-    if (!fs.existsSync(ruta)) return res.status(404).json({ ok: false, error: 'No existe.' })
-    res.sendFile(ruta)
+    const q = await pool.query('SELECT contenido FROM scans WHERE archivo = $1 LIMIT 1', [nombre])
+    if (!q.rows.length) return res.status(404).json({ ok: false, error: 'No existe.' })
+    const ext = path.extname(nombre).toLowerCase()
+    const tipos = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.tif': 'image/tiff',
+      '.tiff': 'image/tiff',
+    }
+    res.type(tipos[ext] || 'application/octet-stream')
+    res.send(q.rows[0].contenido)
   })
 
-  r.get('/status', (_req, res) => {
+  r.get('/status', async (_req, res) => {
+    const totalArchivos = (await pool.query('SELECT COUNT(*)::int AS n FROM scans')).rows[0].n
     res.json({
       carpetaRed: CARPETA_RED || null,
-      carpetaActiva: carpetaActiva(),
-      conectado: CARPETA_RED ? fs.existsSync(CARPETA_RED) : false,
-      totalArchivos: listar().length,
+      carpetaActiva: 'base de datos (persistente)',
+      conectado: true,
+      totalArchivos,
     })
   })
 
-  r.delete('/:nombre', (req, res) => {
+  r.delete('/:nombre', async (req, res) => {
     const nombre = path.basename(req.params.nombre)
-    const carpeta = carpetaActiva()
-    const ruta = path.join(carpeta, nombre)
-    if (fs.existsSync(ruta)) fs.unlinkSync(ruta)
+    await pool.query('DELETE FROM scans WHERE archivo = $1', [nombre])
     res.json({ ok: true })
   })
 

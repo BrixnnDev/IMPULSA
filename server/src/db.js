@@ -91,6 +91,19 @@ export async function initDb() {
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS impresora TEXT DEFAULT '';
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS usuario_id TEXT DEFAULT '';
 
+      CREATE TABLE IF NOT EXISTS scans (
+        id TEXT PRIMARY KEY,
+        archivo TEXT NOT NULL UNIQUE,
+        nombre_base TEXT NOT NULL,
+        size BIGINT NOT NULL,
+        fecha TEXT NOT NULL,
+        persona TEXT DEFAULT '',
+        contenido BYTEA NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS scans_nombre_base_size_idx ON scans (nombre_base, size);
+      CREATE INDEX IF NOT EXISTS scans_fecha_idx ON scans (fecha DESC);
+
       CREATE TABLE IF NOT EXISTS carpetas (
         id TEXT PRIMARY KEY,
         nombre TEXT NOT NULL UNIQUE,
