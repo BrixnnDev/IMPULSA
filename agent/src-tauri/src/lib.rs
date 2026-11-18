@@ -364,12 +364,15 @@ fn start_heartbeat(storage_dir: PathBuf) {
         let api = load_scan_config()
             .servidor
             .unwrap_or_else(|| DEFAULT_API.to_string());
-        let (pairing, name) = load_pairing(&storage_dir);
-        let pc = if name.is_empty() { pairing.clone() } else { name.clone() };
-        if pc.is_empty() {
-            return;
-        }
         loop {
+            // El emparejamiento puede hacerse después de iniciar el agente.
+            // Leer el estado dentro del bucle evita que el heartbeat muera al arrancar.
+            let (pairing, name) = load_pairing(&storage_dir);
+            let pc = if name.is_empty() { pairing.clone() } else { name.clone() };
+            if pc.is_empty() {
+                std::thread::sleep(Duration::from_secs(2));
+                continue;
+            }
             let payload = serde_json::json!({
                 "pc": pc,
                 "pc_name": name,
@@ -386,6 +389,92 @@ fn start_heartbeat(storage_dir: PathBuf) {
     });
 }
 
+// Script de PowerShell que lee las impresiones de Windows. Se escribe en el
+// directorio de datos y se ejecuta con -File para evitar problemas de escape.
+// Fuentes: Event 307 del log operativo (el instalador lo habilita) y la cola
+// del spooler mediante System.Printing (no depende de WMI).
+const PRINT_SCRIPT: &str = r##"$ErrorActionPreference = 'SilentlyContinue'
+$dir = '__DIR__'
+$lastFile = Join-Path $dir 'last_print.json'
+$diagFile = Join-Path $dir 'print_diag.json'
+$lines = New-Object System.Collections.ArrayList
+$eventoErr = ''
+$colaErr = ''
+$logErr = ''
+
+# El log operativo de impresión suele venir deshabilitado. El instalador lo
+# activa con elevación; aquí se vuelve a intentar por si el agente corre como admin.
+try { wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null } catch { $logErr = $_.Exception.Message }
+
+# 1) Eventos 307: documento, usuario, impresora, páginas y fecha reales.
+try {
+  $last = 0
+  if (Test-Path $lastFile) {
+    try { $last = [long]((Get-Content $lastFile -Raw).Trim()) } catch { $last = 0 }
+  }
+  $eventos = @(Get-WinEvent -FilterHashtable @{ LogName='Microsoft-Windows-PrintService/Operational'; Id=307 } -ErrorAction Stop |
+    Where-Object { $_.RecordId -gt $last })
+  $maxId = $last
+  foreach ($e in $eventos) {
+    $p = $e.Properties
+    $doc = if ($p.Count -gt 0) { [string]$p[0].Value } else { '' }
+    $usr = if ($p.Count -gt 1) { [string]$p[1].Value } else { '' }
+    $prn = if ($p.Count -gt 2) { [string]$p[2].Value } else { '' }
+    $pag = if ($p.Count -gt 4) { [string]$p[4].Value } else { '1' }
+    if (-not [string]::IsNullOrWhiteSpace($doc)) {
+      $obj = [ordered]@{
+        evento_id = "EVT-$($e.RecordId)"
+        documento = $doc
+        usuario = $usr
+        impresora = $prn
+        paginas = [int]$pag
+        fecha = $e.TimeCreated.ToUniversalTime().ToString('o')
+      }
+      [void]$lines.Add(($obj | ConvertTo-Json -Compress))
+    }
+    if ($e.RecordId -gt $maxId) { $maxId = $e.RecordId }
+  }
+  if ($eventos.Count -gt 0) { Set-Content -Path $lastFile -Value $maxId }
+} catch { $eventoErr = $_.Exception.Message }
+
+# 2) Cola activa del spooler, sin WMI (WMI está roto en algunas PCs).
+try {
+  $dll = Join-Path $env:windir 'Microsoft.NET\Framework64\v4.0.30319\WPF\ReachFramework.dll'
+  if (-not (Test-Path $dll)) { $dll = Join-Path $env:windir 'Microsoft.NET\Framework\v4.0.30319\WPF\ReachFramework.dll' }
+  if (Test-Path $dll) {
+    Add-Type -Path $dll
+    $srv = New-Object System.Printing.PrintServer
+    foreach ($q in $srv.GetPrintQueues()) {
+      try { $trabajos = @($q.GetPrintJobInfoCollection()) } catch { continue }
+      foreach ($j in $trabajos) {
+        $doc = [string]$j.JobName
+        if ([string]::IsNullOrWhiteSpace($doc)) { continue }
+        $fecha = $j.TimeJobSubmitted
+        $obj = [ordered]@{
+          evento_id = "JOB-$($q.Name)-$($j.JobIdentifier)-$($fecha.Ticks)"
+          documento = $doc
+          usuario = [string]$j.Submitter
+          impresora = [string]$q.Name
+          paginas = [int]$j.NumberOfPages
+          fecha = $fecha.ToUniversalTime().ToString('o')
+        }
+        [void]$lines.Add(($obj | ConvertTo-Json -Compress))
+      }
+    }
+  }
+} catch { $colaErr = $_.Exception.Message }
+
+$diag = [ordered]@{
+  hora = (Get-Date).ToUniversalTime().ToString('o')
+  eventos = $lines.Count
+  evt = $eventoErr
+  cola = $colaErr
+  log = $logErr
+} | ConvertTo-Json -Compress
+Set-Content -Path $diagFile -Value $diag -ErrorAction SilentlyContinue
+$lines | ForEach-Object { Write-Output $_ }
+"##;
+
 // Reporta las impresiones reales de Windows al backend.
 fn start_print_watcher(storage_dir: PathBuf) {
     std::thread::spawn(move || {
@@ -398,99 +487,46 @@ fn start_print_watcher(storage_dir: PathBuf) {
         let api = load_scan_config()
             .servidor
             .unwrap_or_else(|| DEFAULT_API.to_string());
-        let (pairing, name) = load_pairing(&storage_dir);
-        let pc = if pairing.is_empty() { name } else { pairing };
-        if pc.is_empty() {
+        fs::create_dir_all(&storage_dir).ok();
+
+        let dir = storage_dir.to_string_lossy().replace('\'', "''");
+        let script_path = storage_dir.join("impulsa_print.ps1");
+        if fs::write(&script_path, PRINT_SCRIPT.replace("__DIR__", &dir)).is_err() {
             return;
         }
 
-        let dir = storage_dir.to_string_lossy().replace('\'', "''");
-        let script = format!(r#"
-$script:last = 0
-$script:lines = @()
-$evtError = ''
-$cimError = ''
-$wmiError = ''
-$lastFile = Join-Path '{0}' 'last_print.json'
-$diagFile = Join-Path '{0}' 'print_diag.json'
-if (Test-Path $lastFile) {{
-  try {{ $script:last = [long](Get-Content $lastFile -Raw) }} catch {{}}
-}} else {{
-  try {{
-    $max = Get-WinEvent -FilterHashtable @{{ LogName='Microsoft-Windows-PrintService/Operational'; Id=307 }} -MaxEvents 1 -ErrorAction Stop
-    if ($max) {{ $script:last = $max.RecordId }}
-  }} catch {{}}
-  Set-Content -Path $lastFile -Value $script:last -ErrorAction SilentlyContinue
-}}
-function Add-ImpulsaJob {{
-  param($doc, $user, $printer, $pages, $id, $time)
-  if ([string]::IsNullOrWhiteSpace([string]$doc)) {{ return }}
-  $script:lines += [pscustomobject]@{{
-    evento_id = [string]$id
-    documento = [string]$doc
-    usuario = [string]$user
-    impresora = [string]$printer
-    paginas = [int]$pages
-    fecha = ([datetime]$time).ToUniversalTime().ToString('o')
-  }} | ConvertTo-Json -Compress
-}}
-try {{ wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null }} catch {{ $evtError = $_.Exception.Message }}
-try {{
-  Get-WinEvent -FilterHashtable @{{ LogName='Microsoft-Windows-PrintService/Operational'; Id=307 }} -ErrorAction Stop |
-    Where-Object {{ $_.RecordId -gt $script:last }} |
-    ForEach-Object {{
-      $e = $_
-      Add-ImpulsaJob -doc $e.Properties[0].Value -user $e.Properties[1].Value -printer $e.Properties[2].Value -pages $e.Properties[4].Value -id ("EVT-$($e.RecordId)") -time $e.TimeCreated
-      $script:last = $e.RecordId
-    }}
-  Set-Content -Path $lastFile -Value $script:last -ErrorAction SilentlyContinue
-}} catch {{ $evtError = $_.Exception.Message }}
-if ($script:lines.Count -eq 0) {{
-  try {{
-    Get-CimInstance Win32_PrintJob -ErrorAction Stop | ForEach-Object {{
-      $jobName = [string]$_.Name
-      $jobId = if ($jobName -match ',(\d+)$') {{ $matches[1] }} else {{ [string]$_.JobId }}
-      Add-ImpulsaJob -doc $_.Document -user $_.Owner -printer (($jobName -split ',')[0]) -pages $_.TotalPages -id ("WMI-$jobId") -time $_.TimeSubmitted
-    }}
-  }} catch {{ $cimError = $_.Exception.Message }}
-}}
-if ($script:lines.Count -eq 0) {{
-  try {{
-    Get-WmiObject -Class Win32_PrintJob -ErrorAction Stop | ForEach-Object {{
-      $jobName = [string]$_.Name
-      $jobId = if ($jobName -match ',(\d+)$') {{ $matches[1] }} else {{ [string]$_.JobId }}
-      Add-ImpulsaJob -doc $_.Document -user $_.Owner -printer (($jobName -split ',')[0]) -pages $_.TotalPages -id ("WMI-$jobId") -time $_.TimeSubmitted
-    }}
-  }} catch {{ $wmiError = $_.Exception.Message }}
-}}
-$diag = [pscustomobject]@{{
-  hora = (Get-Date).ToUniversalTime().ToString('o')
-  eventos = $script:lines.Count
-  last = $script:last
-  evt = $evtError
-  cim = $cimError
-  wmi = $wmiError
-}} | ConvertTo-Json -Compress
-Set-Content -Path $diagFile -Value $diag -ErrorAction SilentlyContinue
-$script:lines | ForEach-Object {{ Write-Output $_ }}
-"#, dir);
+        let seen_path = storage_dir.join("seen_prints.json");
+        let mut seen: HashSet<String> = fs::read_to_string(&seen_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
+            .map(|v| v.into_iter().collect())
+            .unwrap_or_default();
 
         loop {
             std::thread::sleep(Duration::from_secs(2));
+
+            // El código de emparejamiento puede guardarse después de arrancar.
+            let (pairing, name) = load_pairing(&storage_dir);
+            let pc = if pairing.is_empty() { name } else { pairing };
+            if pc.is_empty() {
+                continue;
+            }
+
             let mut cmd = Command::new("powershell.exe");
             cmd.arg("-NoProfile")
                 .arg("-NonInteractive")
                 .arg("-ExecutionPolicy")
                 .arg("Bypass")
-                .arg("-Command")
-                .arg(&script);
+                .arg("-File")
+                .arg(&script_path);
             #[cfg(windows)]
             cmd.creation_flags(CREATE_NO_WINDOW);
-            let output = cmd.output();
-            let out = match output {
+            let out = match cmd.output() {
                 Ok(out) => out,
                 Err(_) => continue,
             };
+
+            let mut hubo_nuevos = false;
             for line in String::from_utf8_lossy(&out.stdout).lines() {
                 let line = line.trim();
                 if line.is_empty() {
@@ -511,13 +547,18 @@ $script:lines | ForEach-Object {{ Write-Output $_ }}
                 if documento.is_empty() {
                     continue;
                 }
+                let id = field("evento_id");
+                if id.is_empty() || !seen.insert(id.clone()) {
+                    continue;
+                }
+                hubo_nuevos = true;
                 let paginas = value
                     .get("paginas")
                     .and_then(|v| v.as_i64())
                     .unwrap_or(1);
                 let payload = serde_json::json!({
                     "pc": pc,
-                    "evento_id": field("evento_id"),
+                    "evento_id": id,
                     "documento": documento,
                     "usuario": field("usuario"),
                     "impresora": field("impresora"),
@@ -527,6 +568,10 @@ $script:lines | ForEach-Object {{ Write-Output $_ }}
                 })
                 .to_string();
                 post_json("/api/pc/print", &payload, &api);
+            }
+            if hubo_nuevos {
+                let lista: Vec<String> = seen.iter().cloned().collect();
+                let _ = fs::write(&seen_path, serde_json::to_string(&lista).unwrap_or_default());
             }
         }
     });

@@ -48,6 +48,7 @@
         "installMode": "both",
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
+        "installerHooks": "installer-hooks.nsi",
         "languages": ["Spanish"]
       }
     },
