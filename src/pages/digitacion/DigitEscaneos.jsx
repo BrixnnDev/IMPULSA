@@ -147,11 +147,11 @@ export default function DigitEscaneos() {
       </div>
 
       {/* Lista */}
-      <div className="panel min-h-0 flex-1 overflow-hidden">
-        <div className="border-b border-white/5 px-6 py-4">
+      <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 border-b border-white/5 px-6 py-4">
           <h3 className="font-bold text-white">Escaneos ({filtrados.length})</h3>
         </div>
-        <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
+        <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto overscroll-contain">
           {filtrados.map((e) => (
             <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4 transition hover:bg-white/[0.03]">
               <span className="rounded-lg bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-300 ring-1 ring-blue-500/25">
