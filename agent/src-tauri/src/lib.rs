@@ -400,6 +400,7 @@ $diagFile = Join-Path $dir 'print_diag.json'
 $lines = New-Object System.Collections.ArrayList
 $eventoErr = ''
 $colaErr = ''
+$spoolerErr = ''
 $logErr = ''
 
 # El log operativo de impresión suele venir deshabilitado. El instalador lo
@@ -437,7 +438,21 @@ try {
   if ($eventos.Count -gt 0) { Set-Content -Path $lastFile -Value $maxId }
 } catch { $eventoErr = $_.Exception.Message }
 
-# 2) Cola activa del spooler, sin WMI (WMI está roto en algunas PCs).
+# 2) API nativa del spooler: documento, usuario, impresora, páginas y fecha.
+try {
+  $cs = Join-Path $dir 'impulsa_spooler.cs'
+  if (Test-Path $cs) {
+    Add-Type -Path $cs
+    $jobsJson = [ImpulsaSpooler]::GetJobsJson()
+    if (-not [string]::IsNullOrWhiteSpace($jobsJson)) {
+      foreach ($jobLine in ($jobsJson -split "`n")) {
+        if (-not [string]::IsNullOrWhiteSpace($jobLine)) { [void]$lines.Add($jobLine.Trim()) }
+      }
+    }
+  }
+} catch { $spoolerErr = $_.Exception.Message }
+
+# 3) Cola activa mediante System.Printing (respaldo adicional).
 try {
   $dll = Join-Path $env:windir 'Microsoft.NET\Framework64\v4.0.30319\WPF\ReachFramework.dll'
   if (-not (Test-Path $dll)) { $dll = Join-Path $env:windir 'Microsoft.NET\Framework\v4.0.30319\WPF\ReachFramework.dll' }
@@ -468,11 +483,134 @@ $diag = [ordered]@{
   hora = (Get-Date).ToUniversalTime().ToString('o')
   eventos = $lines.Count
   evt = $eventoErr
+  spooler = $spoolerErr
   cola = $colaErr
   log = $logErr
 } | ConvertTo-Json -Compress
 Set-Content -Path $diagFile -Value $diag -ErrorAction SilentlyContinue
 $lines | ForEach-Object { Write-Output $_ }
+"##;
+
+// Helper C# que enumera los trabajos del spooler con la API nativa.
+// System.Printing.GetPrintJobInfoCollection() falla en varias colas de este
+// entorno y WMI está roto, así que esta es la fuente principal de impresiones.
+const SPOOLER_CS: &str = r##"using System;
+using System.Text;
+using System.Runtime.InteropServices;
+
+public static class ImpulsaSpooler
+{
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct PRINTER_INFO_4 { public IntPtr pPrinterName; public IntPtr pServerName; public uint Attributes; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct SYSTEMTIME { public ushort Year, Month, DayOfWeek, Day, Hour, Minute, Second, Milliseconds; }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct JOB_INFO_1
+    {
+        public uint JobId;
+        public IntPtr pPrinterName;
+        public IntPtr pMachineName;
+        public IntPtr pUserName;
+        public IntPtr pDocument;
+        public IntPtr pDatatype;
+        public IntPtr pStatus;
+        public uint Status;
+        public uint Priority;
+        public uint Position;
+        public uint TotalPages;
+        public uint Size;
+        public SYSTEMTIME Submitted;
+        public uint Runtime;
+        public uint TimePrinted;
+    }
+
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool EnumPrinters(uint flags, IntPtr name, uint level, IntPtr buf, uint cb, out uint needed, out uint returned);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool EnumJobs(IntPtr handle, uint first, uint count, uint level, IntPtr buf, uint cb, out uint needed, out uint returned);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    static extern bool ClosePrinter(IntPtr handle);
+
+    static string Esc(string s)
+    {
+        if (s == null) return "";
+        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", " ").Replace("\n", " ");
+    }
+
+    static string Str(IntPtr p)
+    {
+        if (p == IntPtr.Zero) return "";
+        try { return Marshal.PtrToStringUni(p) ?? ""; } catch { return ""; }
+    }
+
+    public static string GetJobsJson()
+    {
+        var sb = new StringBuilder();
+        uint needed = 0, returned = 0;
+        EnumPrinters(6, IntPtr.Zero, 4, IntPtr.Zero, 0, out needed, out returned);
+        if (needed == 0) return "";
+        IntPtr printers = Marshal.AllocHGlobal((int)needed);
+        try
+        {
+            if (!EnumPrinters(6, IntPtr.Zero, 4, printers, needed, out needed, out returned)) return "";
+            int printerSize = Marshal.SizeOf(typeof(PRINTER_INFO_4));
+            for (int i = 0; i < returned; i++)
+            {
+                var info = (PRINTER_INFO_4)Marshal.PtrToStructure(IntPtr.Add(printers, i * printerSize), typeof(PRINTER_INFO_4));
+                string printer = Str(info.pPrinterName);
+                if (string.IsNullOrWhiteSpace(printer)) continue;
+                IntPtr handle;
+                if (!OpenPrinter(printer, out handle, IntPtr.Zero)) continue;
+                try
+                {
+                    IntPtr jobsBuf = Marshal.AllocHGlobal(1024 * 1024);
+                    uint jobsNeeded = 0, jobsCount = 0;
+                    try
+                    {
+                        if (!EnumJobs(handle, 0, 100, 1, jobsBuf, 1024 * 1024, out jobsNeeded, out jobsCount)) continue;
+                        // JOB_INFO_1 ocupa 96 bytes en el spooler de Windows x64.
+                        const int jobSize = 96;
+                        for (int j = 0; j < jobsCount && j < 100; j++)
+                        {
+                            var job = (JOB_INFO_1)Marshal.PtrToStructure(IntPtr.Add(jobsBuf, j * jobSize), typeof(JOB_INFO_1));
+                            string doc = Str(job.pDocument);
+                            if (string.IsNullOrWhiteSpace(doc)) continue;
+                            DateTime fecha;
+                            try
+                            {
+                                // SYSTEMTIME del spooler ya viene en UTC (no es hora local).
+                                fecha = new DateTime(job.Submitted.Year, job.Submitted.Month, job.Submitted.Day,
+                                    job.Submitted.Hour, job.Submitted.Minute, job.Submitted.Second, DateTimeKind.Utc);
+                            }
+                            catch { fecha = DateTime.UtcNow; }
+                            // Solo impresiones del día en hora local: evita subir
+                            // trabajos viejos que quedaron en colas de otras PCs.
+                            if (fecha.ToLocalTime().Date != DateTime.Today) continue;
+                            sb.Append("{\"evento_id\":\"JOB-").Append(Esc(printer)).Append('-').Append(job.JobId)
+                              .Append('-').Append(fecha.Ticks).Append("\",\"documento\":\"").Append(Esc(doc))
+                              .Append("\",\"usuario\":\"").Append(Esc(Str(job.pUserName)))
+                              .Append("\",\"impresora\":\"").Append(Esc(printer))
+                              .Append("\",\"paginas\":").Append(job.TotalPages)
+                              .Append(",\"fecha\":\"").Append(fecha.ToString("o"))
+                              .Append("\"}\n");
+                        }
+                    }
+                    finally { Marshal.FreeHGlobal(jobsBuf); }
+                }
+                finally { ClosePrinter(handle); }
+            }
+        }
+        finally { Marshal.FreeHGlobal(printers); }
+        return sb.ToString();
+    }
+}
 "##;
 
 // Reporta las impresiones reales de Windows al backend.
@@ -491,7 +629,9 @@ fn start_print_watcher(storage_dir: PathBuf) {
 
         let dir = storage_dir.to_string_lossy().replace('\'', "''");
         let script_path = storage_dir.join("impulsa_print.ps1");
-        if fs::write(&script_path, PRINT_SCRIPT.replace("__DIR__", &dir)).is_err() {
+        if fs::write(storage_dir.join("impulsa_spooler.cs"), SPOOLER_CS).is_err()
+            || fs::write(&script_path, PRINT_SCRIPT.replace("__DIR__", &dir)).is_err()
+        {
             return;
         }
 
