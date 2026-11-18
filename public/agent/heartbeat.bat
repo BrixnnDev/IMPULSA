@@ -21,10 +21,8 @@ if "%PAIR_CODE%"=="" (
     exit /b 1
 )
 
-REM === Pedir URL del servidor ===
-set SERVER_URL=http://localhost:8787
-set /p SERVER_URL="   Servidor (Enter = http://localhost:8787): "
-if "%SERVER_URL%"=="" set SERVER_URL=http://localhost:8787
+REM === Backend de produccion (interno, no se muestra) ===
+set SERVER_URL=https://impulsa-api-v1l0.onrender.com
 
 echo.
 echo   Conectando...

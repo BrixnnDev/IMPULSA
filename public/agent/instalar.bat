@@ -10,9 +10,8 @@ echo.
 echo   Este agente conecta tu PC con el sistema.
 echo.
 
-REM === Pedir URL del servidor ===
-set /p SERVER_URL="   URL del servidor (Enter = https://impulsx.vercel.app): "
-if "%SERVER_URL%"=="" set SERVER_URL=https://impulsx.vercel.app
+REM === Backend de produccion (interno, no se muestra) ===
+set SERVER_URL=https://impulsa-api-v1l0.onrender.com
 
 REM === Pedir codigo de emparejamiento ===
 set /p PAIR_CODE="   Codigo de emparejamiento: "
@@ -28,7 +27,7 @@ set "PC_NAME=%COMPUTERNAME%"
 
 echo.
 echo   PC: %PC_NAME%
-echo   Servidor: %SERVER_URL%
+echo   Servidor: IMPULSA
 echo   Codigo: %PAIR_CODE%
 echo.
 
@@ -102,7 +101,7 @@ echo   VINCULADO
 echo ============================================
 echo   PC:       %PC_NAME%
 echo   Codigo:   %PAIR_CODE%
-echo   Servidor: %SERVER_URL%
+echo   Servidor: IMPULSA
 echo.
 echo   Tu PC ya esta conectada al sistema.
 echo   El agente enviara heartbeat cada 30s.
