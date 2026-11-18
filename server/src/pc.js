@@ -225,6 +225,14 @@ export function pcRouter(io) {
     } catch (e) { console.error('[pc] prints:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })
 
+  // Borrar una impresión del historial (pruebas / correcciones)
+  r.delete('/prints/:id', async (req, res) => {
+    try {
+      await pool.query('DELETE FROM prints WHERE id = $1', [req.params.id])
+      res.json({ ok: true })
+    } catch (e) { console.error('[pc] delete print:', e.message); res.status(500).json({ ok: false, error: e.message }) }
+  })
+
   // Estado de todas las PCs
   r.get('/status', async (_req, res) => {
     try { res.json(await todosLosPcs()) } catch (e) { console.error('[pc] status:', e.message); res.status(500).json({ ok: false, error: e.message }) }
