@@ -1,6 +1,7 @@
 {
   "servidor": "https://impulsa-api-v1l0.onrender.com",
   "pc": "PC-01",
-  "carpeta": "C:\\Escanner",
-  "persona": "Digitador"
+  "carpeta": "\\\\DESKTOP-P5G6A7L\\servidor",
+  "persona": "Digitador",
+  "solo_nuevos": true
 }

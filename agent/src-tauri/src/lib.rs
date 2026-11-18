@@ -26,9 +26,10 @@ struct ScanConfig {
     carpeta: Option<String>,
     servidor: Option<String>,
     persona: Option<String>,
+    solo_nuevos: Option<bool>,
 }
 
-const DEFAULT_SCAN_FOLDER: &str = "C:\\Escanner";
+const DEFAULT_SCAN_FOLDER: &str = "\\\\DESKTOP-P5G6A7L\\servidor";
 const DEFAULT_API: &str = "https://impulsa-api-v1l0.onrender.com";
 
 fn get_state_path(app: &tauri::AppHandle) -> PathBuf {
@@ -170,6 +171,7 @@ fn load_scan_config() -> ScanConfig {
             carpeta: None,
             servidor: None,
             persona: None,
+            solo_nuevos: None,
         })
 }
 
@@ -204,6 +206,7 @@ fn upload_scan_file(path: &PathBuf, persona: &str, api: &str) -> bool {
 fn start_scan_watcher(storage_dir: PathBuf) {
     std::thread::spawn(move || {
         let cfg = load_scan_config();
+        let solo_nuevos = cfg.solo_nuevos.unwrap_or(true);
         let folder = PathBuf::from(cfg.carpeta.as_deref().unwrap_or(DEFAULT_SCAN_FOLDER));
         let api = cfg.servidor.unwrap_or_else(|| DEFAULT_API.to_string());
         let persona = cfg.persona.unwrap_or_else(|| "Digitador".to_string());
@@ -215,6 +218,22 @@ fn start_scan_watcher(storage_dir: PathBuf) {
             .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
             .map(|v| v.into_iter().collect())
             .unwrap_or_default();
+
+        // La carpeta compartida ya tiene muchos archivos antiguos: se marcan
+        // como enviados para subir solamente los escáneres nuevos.
+        if solo_nuevos && folder.is_dir() {
+            if let Ok(entries) = fs::read_dir(&folder) {
+                for entry in entries.flatten() {
+                    if entry.path().is_file() {
+                        sent.insert(entry.file_name().to_string_lossy().to_string());
+                    }
+                }
+                if let Ok(json) = serde_json::to_string(&sent.iter().collect::<Vec<_>>()) {
+                    let _ = fs::write(&sent_path, json);
+                }
+            }
+        }
+
         let mut sizes: HashMap<String, u64> = HashMap::new();
 
         loop {

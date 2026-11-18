@@ -13,6 +13,11 @@ function limpiarNombre(nombre) {
   return base.replace(/[^a-zA-Z0-9._\- ()áéíóúÁÉÍÓÚñÑ]/g, '_').slice(0, 120)
 }
 
+// Quita el sufijo aleatorio agregado al guardar para comparar nombres originales.
+function nombreBase(nombre) {
+  return nombre.replace(/-[0-9a-f]{8}(\.[^.]+)?$/i, (_match, ext) => ext || '')
+}
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, CARPETA_LOCAL),
   filename: (_req, file, cb) => {
@@ -62,6 +67,19 @@ export function scansRouter(io) {
 
   r.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ ok: false, error: 'Falta el archivo (campo "file").' })
+
+    // Varios PC pueden vigilar la misma carpeta compartida: evita duplicados.
+    const existente = listar().find((f) =>
+      f.archivo !== req.file.filename &&
+      nombreBase(f.archivo) === req.file.originalname &&
+      f.size === req.file.size,
+    )
+    if (existente) {
+      fs.unlinkSync(req.file.path)
+      console.log(`[escaner] duplicado ignorado: ${req.file.originalname}`)
+      return res.json({ ok: true, archivo: existente.archivo, duplicado: true })
+    }
+
     const data = listar()[0] || {}
     io.emit('scan:new', { ...data, persona: req.body?.persona || '' })
     console.log(`[escaner] recibido: ${req.file.originalname} (${(req.file.size / 1024).toFixed(0)} KB)`)
