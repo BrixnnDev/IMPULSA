@@ -15,6 +15,7 @@ function formatearTamano(bytes) {
 export default function DigitEscaneos() {
   const [escaneos, setEscaneos] = useState([])
   const [busqueda, setBusqueda] = useState('')
+  const [soloHoy, setSoloHoy] = useState(false)
   const [escaneresOnline, setEscaneresOnline] = useState([])
 
   const cargarEscaneos = () => {
@@ -54,15 +55,14 @@ export default function DigitEscaneos() {
     return () => { s.close(); clearInterval(id) }
   }, [])
 
+  const esHoy = (e) => new Date(e.fecha).toDateString() === new Date().toDateString()
+
   const filtrados = escaneos.filter((e) =>
-    `${e.nombre} ${e.id} ${e.archivo || ''}`.toLowerCase().includes(busqueda.toLowerCase()),
+    `${e.nombre} ${e.id} ${e.archivo || ''}`.toLowerCase().includes(busqueda.toLowerCase()) &&
+    (!soloHoy || esHoy(e)),
   )
 
-  const totalHoy = escaneos.filter((e) => {
-    const d = new Date(e.fecha)
-    const hoy = new Date()
-    return d.toDateString() === hoy.toDateString()
-  }).length
+  const totalHoy = escaneos.filter(esHoy).length
 
   return (
     <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden lg:max-h-[calc(100vh-8rem)]">
@@ -79,14 +79,30 @@ export default function DigitEscaneos() {
             Documentos digitalizados que se guardan en IMPULSA.
           </p>
         </div>
-        <div className="relative w-full max-w-sm sm:w-auto sm:min-w-[280px]">
-          <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o archivo…"
-            className="input-field !pl-11 input-upper"
-          />
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="flex rounded-xl border border-white/10 bg-night-850 p-1">
+            <button
+              onClick={() => setSoloHoy(false)}
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${!soloHoy ? 'bg-blue-600/20 text-blue-300' : 'text-slate-500 hover:text-white'}`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setSoloHoy(true)}
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${soloHoy ? 'bg-blue-600/20 text-blue-300' : 'text-slate-500 hover:text-white'}`}
+            >
+              Hoy ({totalHoy})
+            </button>
+          </div>
+          <div className="relative w-full max-w-sm sm:w-auto sm:min-w-[280px]">
+            <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre o archivo…"
+              className="input-field !pl-11 input-upper"
+            />
+          </div>
         </div>
       </div>
 

@@ -80,7 +80,14 @@ export function scansRouter(io) {
       return res.json({ ok: true, archivo: existente.archivo, duplicado: true })
     }
 
-    const data = listar()[0] || {}
+    // Conserva la fecha real del escaneo (no la hora de subida) para que el
+    // historial muestre correctamente los documentos del día.
+    const fechaScan = new Date(req.body?.fecha)
+    if (!Number.isNaN(fechaScan.getTime())) {
+      try { fs.utimesSync(req.file.path, fechaScan, fechaScan) } catch { /* ignore */ }
+    }
+
+    const data = listar().find((f) => f.archivo === req.file.filename) || listar()[0] || {}
     io.emit('scan:new', { ...data, persona: req.body?.persona || '' })
     console.log(`[escaner] recibido: ${req.file.originalname} (${(req.file.size / 1024).toFixed(0)} KB)`)
     res.json({ ok: true, archivo: req.file.filename })

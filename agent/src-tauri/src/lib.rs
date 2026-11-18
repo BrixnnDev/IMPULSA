@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local, LocalResult, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -163,6 +164,33 @@ fn get_sent_path(base: &PathBuf) -> PathBuf {
     base.join("sent.json")
 }
 
+// Timestamp (UTC) de la medianoche local de hoy. Sirve para distinguir los
+// escaneos de hoy de los archivos antiguos que ya estaban en la carpeta.
+fn inicio_de_hoy() -> i64 {
+    let ahora = Local::now();
+    let medianoche = ahora
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap_or_else(|| ahora.naive_local());
+    match medianoche.and_local_timezone(Local) {
+        LocalResult::Single(dt) => dt.timestamp(),
+        _ => ahora.timestamp(),
+    }
+}
+
+fn guardar_enviados(path: &PathBuf, enviados: &HashSet<String>) {
+    if let Ok(json) = serde_json::to_string(&enviados.iter().collect::<Vec<_>>()) {
+        let _ = fs::write(path, json);
+    }
+}
+
+fn fecha_modificacion(path: &PathBuf) -> Option<DateTime<Utc>> {
+    fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .map(DateTime::<Utc>::from)
+}
+
 fn load_scan_config() -> ScanConfig {
     fs::read_to_string(get_scan_config_path())
         .ok()
@@ -175,7 +203,7 @@ fn load_scan_config() -> ScanConfig {
         })
 }
 
-fn upload_scan_file(path: &PathBuf, persona: &str, api: &str) -> bool {
+fn upload_scan_file(path: &PathBuf, persona: &str, api: &str, fecha: &str) -> bool {
     use std::process::Command;
     #[cfg(windows)]
     use std::os::windows::process::CommandExt;
@@ -190,6 +218,8 @@ fn upload_scan_file(path: &PathBuf, persona: &str, api: &str) -> bool {
         .arg(format!("file=@{}", path.to_string_lossy()))
         .arg("-F")
         .arg(format!("persona={}", persona))
+        .arg("-F")
+        .arg(format!("fecha={}", fecha))
         .arg(format!("{}/api/scans/upload", api.trim_end_matches('/')));
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -219,18 +249,29 @@ fn start_scan_watcher(storage_dir: PathBuf) {
             .map(|v| v.into_iter().collect())
             .unwrap_or_default();
 
-        // La carpeta compartida ya tiene muchos archivos antiguos: se marcan
-        // como enviados para subir solamente los escáneres nuevos.
+        // La carpeta compartida tiene archivos de muchos días. Solo se ignoran
+        // los anteriores a hoy; los que se escanearon hoy se vuelven a evaluar
+        // aunque el agente estuviera cerrado cuando se crearon. El backend
+        // descarta duplicados por nombre + tamaño.
         if solo_nuevos && folder.is_dir() {
+            let inicio = inicio_de_hoy();
             if let Ok(entries) = fs::read_dir(&folder) {
                 for entry in entries.flatten() {
-                    if entry.path().is_file() {
-                        sent.insert(entry.file_name().to_string_lossy().to_string());
+                    let path = entry.path();
+                    if !path.is_file() {
+                        continue;
+                    }
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    let es_de_hoy = fecha_modificacion(&path)
+                        .map(|f| f.timestamp() >= inicio)
+                        .unwrap_or(false);
+                    if es_de_hoy {
+                        sent.remove(&name);
+                    } else {
+                        sent.insert(name);
                     }
                 }
-                if let Ok(json) = serde_json::to_string(&sent.iter().collect::<Vec<_>>()) {
-                    let _ = fs::write(&sent_path, json);
-                }
+                guardar_enviados(&sent_path, &sent);
             }
         }
 
@@ -266,11 +307,13 @@ fn start_scan_watcher(storage_dir: PathBuf) {
                     sizes.insert(name.clone(), size);
                     continue;
                 }
-                if upload_scan_file(&path, &persona, &api) {
+                let fecha = fecha_modificacion(&path)
+                    .map(|f| f.to_rfc3339())
+                    .unwrap_or_default();
+                if upload_scan_file(&path, &persona, &api, &fecha) {
                     sent.insert(name.clone());
-                    if let Ok(json) = serde_json::to_string(&sent.iter().collect::<Vec<_>>()) {
-                        let _ = fs::write(&sent_path, json);
-                    }
+                    guardar_enviados(&sent_path, &sent);
+                    println!("[escaner] subido: {}", name);
                 }
             }
         }
