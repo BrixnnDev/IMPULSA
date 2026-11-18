@@ -1,5 +1,5 @@
 {
   "carpeta": "C:\\Escanner",
-  "servidor": "http://localhost:8787",
+  "servidor": "https://impulsa-api-v1l0.onrender.com",
   "persona": "Digitador"
 }

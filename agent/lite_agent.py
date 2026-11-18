@@ -5,9 +5,11 @@ y no se muestra en la interfaz.
 """
 
 import json
+import os
 import platform
 import re
 import socket
+import sys
 import threading
 import tkinter as tk
 import urllib.error
@@ -17,6 +19,37 @@ from tkinter import ttk
 
 # Uso interno: nunca se muestra en pantalla.
 API = "https://impulsa-api-v1l0.onrender.com"
+SCAN_FOLDER_DEFAULT = r"C:\Escanner"
+
+
+def _config_paths():
+    exe_dir = os.path.dirname(getattr(sys, "executable", "")) or os.getcwd()
+    return [
+        os.path.join(exe_dir, "config.json"),
+        os.path.join(os.getcwd(), "config.json"),
+        os.path.join(
+            os.environ.get("APPDATA", ""),
+            "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
+            "IMPULSA-Agent", "config.json",
+        ),
+    ]
+
+
+def _load_config():
+    for path in _config_paths():
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return json.load(fh)
+        except Exception:
+            continue
+    return {}
+
+
+CFG = _load_config()
+SCAN_FOLDER = CFG.get("carpeta") or SCAN_FOLDER_DEFAULT
+PERSONA = CFG.get("persona") or "Digitador"
+BASE_DIR = os.path.dirname(getattr(sys, "executable", "")) or os.getcwd()
+SENT_PATH = os.path.join(BASE_DIR, "sent.json")
 
 
 def _pc_name():
@@ -44,6 +77,49 @@ def _post(path, payload):
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def upload_scan(file_path):
+    name = os.path.basename(file_path)
+    with open(file_path, "rb") as fh:
+        data = fh.read()
+    if not data:
+        return False
+
+    boundary = "----ImpulsaUploadBoundary"
+    body = b"".join(
+        [
+            f'--{boundary}\r\nContent-Disposition: form-data; name="persona"\r\n\r\n{PERSONA}\r\n'.encode(),
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{name}"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n".encode(),
+            data,
+            f"\r\n--{boundary}--\r\n".encode(),
+        ]
+    )
+    req = urllib.request.Request(
+        API + "/api/scans/upload",
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return json.loads(resp.read().decode("utf-8")).get("ok", False)
+
+
+def load_sent():
+    try:
+        with open(SENT_PATH, encoding="utf-8") as fh:
+            return set(json.load(fh))
+    except Exception:
+        return set()
+
+
+def save_sent(names):
+    try:
+        with open(SENT_PATH, "w", encoding="utf-8") as fh:
+            json.dump(sorted(names), fh)
+    except Exception:
+        pass
 
 
 class AgentApp:
@@ -85,6 +161,8 @@ class AgentApp:
         self.button.pack(fill="x")
 
         self.heartbeat_stop = threading.Event()
+        self.scan_stop = threading.Event()
+        threading.Thread(target=self._watch_scans, daemon=True).start()
 
     def _format_code(self, *_):
         raw = re.sub(r"[^A-Za-z0-9]", "", self.code_var.get()).upper()[:8]
@@ -133,6 +211,39 @@ class AgentApp:
     def _failed(self, message):
         self._set_status(f"No se pudo emparejar: {message}", "#F87171")
         self.button.configure(state="normal")
+
+    def _watch_scans(self):
+        sent = load_sent()
+        sizes = {}
+        while not self.scan_stop.wait(3):
+            if not os.path.isdir(SCAN_FOLDER):
+                continue
+            try:
+                names = os.listdir(SCAN_FOLDER)
+            except OSError:
+                continue
+            for name in names:
+                if name.startswith(".") or name.endswith(".sent.json") or name in sent:
+                    continue
+                path = os.path.join(SCAN_FOLDER, name)
+                if not os.path.isfile(path):
+                    continue
+                try:
+                    size = os.path.getsize(path)
+                except OSError:
+                    continue
+                if size == 0:
+                    continue
+                # Espera a que el escáner termine de escribir el archivo.
+                if sizes.get(name) != size:
+                    sizes[name] = size
+                    continue
+                try:
+                    if upload_scan(path):
+                        sent.add(name)
+                        save_sent(sent)
+                except Exception:
+                    pass
 
     def _heartbeat(self, code):
         while not self.heartbeat_stop.wait(30):

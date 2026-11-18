@@ -19,7 +19,7 @@ try {
 } catch {
   const defaultCfg = {
     carpeta: 'C:\\Escanner',
-    servidor: 'http://localhost:8787',
+    servidor: 'https://impulsa-api-v1l0.onrender.com',
     persona: 'Digitador',
   }
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(defaultCfg, null, 2), 'utf-8')
