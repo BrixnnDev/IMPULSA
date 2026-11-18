@@ -34,7 +34,7 @@ jobs:
 
       - name: Compilar agente Tauri (NSIS)
         working-directory: agent
-        run: bunx tauri build --target nsis
+        run: bunx tauri build --bundles nsis
 
       - name: Copiar ejecutable a la carpeta pública
         shell: pwsh
