@@ -277,6 +277,169 @@ fn start_scan_watcher(storage_dir: PathBuf) {
     });
 }
 
+fn post_json(path: &str, payload: &str, api: &str) -> bool {
+    use std::process::Command;
+    #[cfg(windows)]
+    use std::os::windows::process::CommandExt;
+    #[cfg(windows)]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    let mut cmd = Command::new("curl.exe");
+    cmd.arg("-s")
+        .arg("-X")
+        .arg("POST")
+        .arg("-H")
+        .arg("Content-Type: application/json")
+        .arg("-d")
+        .arg(payload)
+        .arg(format!("{}{}", api.trim_end_matches('/'), path));
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    matches!(cmd.output(), Ok(out) if out.status.success())
+}
+
+fn load_pairing(storage_dir: &PathBuf) -> (String, String) {
+    let data = fs::read_to_string(storage_dir.join("state.json")).unwrap_or_default();
+    let value: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
+    let pairing = value
+        .get("pairing_code")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let name = value
+        .get("pc_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    (pairing, name)
+}
+
+// Reporta las impresiones reales de Windows al backend.
+fn start_print_watcher(storage_dir: PathBuf) {
+    std::thread::spawn(move || {
+        use std::process::Command;
+        #[cfg(windows)]
+        use std::os::windows::process::CommandExt;
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let api = load_scan_config()
+            .servidor
+            .unwrap_or_else(|| DEFAULT_API.to_string());
+        let (pairing, name) = load_pairing(&storage_dir);
+        let pc = if pairing.is_empty() { name } else { pairing };
+        if pc.is_empty() {
+            return;
+        }
+
+        let dir = storage_dir.to_string_lossy().replace('\'', "''");
+        let script = format!(r#"
+$script:last = 0
+$lastFile = Join-Path '{0}' 'last_print.json'
+if (Test-Path $lastFile) {{
+  try {{ $script:last = [long](Get-Content $lastFile -Raw) }} catch {{}}
+}} else {{
+  try {{
+    $max = Get-WinEvent -FilterHashtable @{{ LogName='Microsoft-Windows-PrintService/Operational'; Id=307 }} -MaxEvents 1 -ErrorAction Stop
+    if ($max) {{ $script:last = $max.RecordId }}
+  }} catch {{}}
+  Set-Content -Path $lastFile -Value $script:last -ErrorAction SilentlyContinue
+}}
+$lines = @()
+try {{ wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null }} catch {{}}
+try {{
+  Get-WinEvent -FilterHashtable @{{ LogName='Microsoft-Windows-PrintService/Operational'; Id=307 }} -ErrorAction Stop |
+    Where-Object {{ $_.RecordId -gt $script:last }} |
+    ForEach-Object {{
+      $e = $_
+      $lines += [pscustomobject]@{{
+        evento_id = "EVT-$($e.RecordId)"
+        documento = [string]$e.Properties[0].Value
+        usuario = [string]$e.Properties[1].Value
+        impresora = [string]$e.Properties[2].Value
+        paginas = [int]$e.Properties[4].Value
+        fecha = $e.TimeCreated.ToUniversalTime().ToString('o')
+      }} | ConvertTo-Json -Compress
+      $script:last = $e.RecordId
+    }}
+  Set-Content -Path $lastFile -Value $script:last -ErrorAction SilentlyContinue
+}} catch {{}}
+if ($lines.Count -eq 0) {{
+  try {{
+    Get-WmiObject -Class Win32_PrintJob -ErrorAction Stop | ForEach-Object {{
+      $jobName = [string]$_.Name
+      $jobId = if ($jobName -match ',(\d+)$') {{ $matches[1] }} else {{ [string]$_.JobId }}
+      $lines += [pscustomobject]@{{
+        evento_id = "WMI-$jobId"
+        documento = [string]$_.Document
+        usuario = [string]$_.Owner
+        impresora = ($jobName -split ',')[0]
+        paginas = [int]$_.TotalPages
+        fecha = ([datetime]$_.TimeSubmitted).ToUniversalTime().ToString('o')
+      }} | ConvertTo-Json -Compress
+    }}
+  }} catch {{}}
+}}
+$lines | ForEach-Object {{ Write-Output $_ }}
+"#, dir);
+
+        loop {
+            std::thread::sleep(Duration::from_secs(5));
+            let mut cmd = Command::new("powershell.exe");
+            cmd.arg("-NoProfile")
+                .arg("-NonInteractive")
+                .arg("-ExecutionPolicy")
+                .arg("Bypass")
+                .arg("-Command")
+                .arg(&script);
+            #[cfg(windows)]
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            let output = cmd.output();
+            let out = match output {
+                Ok(out) => out,
+                Err(_) => continue,
+            };
+            for line in String::from_utf8_lossy(&out.stdout).lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
+                let value: serde_json::Value = match serde_json::from_str(line) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                let field = |key: &str| {
+                    value
+                        .get(key)
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string()
+                };
+                let documento = field("documento");
+                if documento.is_empty() {
+                    continue;
+                }
+                let paginas = value
+                    .get("paginas")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(1);
+                let payload = serde_json::json!({
+                    "pc": pc,
+                    "evento_id": field("evento_id"),
+                    "documento": documento,
+                    "usuario": field("usuario"),
+                    "impresora": field("impresora"),
+                    "paginas": paginas,
+                    "copias": 1,
+                    "fecha": field("fecha"),
+                })
+                .to_string();
+                post_json("/api/pc/print", &payload, &api);
+            }
+        }
+    });
+}
+
 fn sanitize_bat_value(value: &str) -> String {
     value
         .chars()
@@ -417,7 +580,8 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
-            start_scan_watcher(data_dir);
+            start_scan_watcher(data_dir.clone());
+            start_print_watcher(data_dir);
 
             Ok(())
         })

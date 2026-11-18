@@ -78,8 +78,13 @@ export async function initDb() {
         copias INTEGER DEFAULT 1,
         hora TEXT NOT NULL,
         fecha TEXT NOT NULL,
-        estado TEXT NOT NULL DEFAULT 'Impreso'
+        estado TEXT NOT NULL DEFAULT 'Impreso',
+        usuario TEXT DEFAULT '',
+        impresora TEXT DEFAULT ''
       );
+
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS usuario TEXT DEFAULT '';
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS impresora TEXT DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS carpetas (
         id TEXT PRIMARY KEY,

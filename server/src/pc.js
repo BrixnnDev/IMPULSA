@@ -151,33 +151,40 @@ export function pcRouter(io) {
     try { res.json(await todosLosPcs()) } catch (e) { console.error('[pc] list:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })
 
-  // Evento de impresión: el script manda cuando alguien imprime
+  // Evento de impresión: el agente reporta la impresión real de Windows
   r.post('/print', async (req, res) => {
     try {
-      const { pc, documento, paginas, copias } = req.body
+      const { pc, documento, paginas, copias, usuario, impresora, fecha, evento_id } = req.body
       if (!pc || !documento) return res.status(400).json({ ok: false })
       const q = await pool.query('SELECT * FROM pcs WHERE id = $1 OR codigo = $1 OR etiqueta = $1 LIMIT 1', [pc])
       const found = q.rows[0]
+      const fechaReal = fecha && !Number.isNaN(new Date(fecha).getTime()) ? new Date(fecha) : new Date()
+      const id = evento_id ? `PRN-${String(evento_id).replace(/[^A-Za-z0-9_-]/g, '')}` : `PRN-${Date.now().toString(36)}`
       const registro = {
-        id: `PRN-${Date.now().toString(36)}`,
+        id,
         pc: found ? found.etiqueta : pc,
         responsable: found ? found.responsable : pc,
+        usuario: usuario || found?.responsable || pc,
+        impresora: impresora || '',
         documento,
-        paginas: paginas || 1,
-        copias: copias || 1,
-        hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-        fecha: new Date().toISOString(),
+        paginas: Number(paginas) || 1,
+        copias: Number(copias) || 1,
+        hora: fechaReal.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        fecha: fechaReal.toISOString(),
         estado: 'Impreso',
       }
-      await pool.query(
-        `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [registro.id, registro.pc, registro.responsable, registro.documento, registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado],
+      const ins = await pool.query(
+        `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado, usuario, impresora)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT (id) DO NOTHING`,
+        [registro.id, registro.pc, registro.responsable, registro.documento, registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado, registro.usuario, registro.impresora],
       )
       await pool.query(`DELETE FROM prints WHERE id NOT IN (SELECT id FROM prints ORDER BY fecha DESC LIMIT 500)`)
-      io.emit('pc:print', registro)
-      console.log(`[print] ${registro.pc} imprimió: ${documento}`)
-      res.json({ ok: true, registro })
+      if (ins.rowCount > 0) {
+        io.emit('pc:print', registro)
+        console.log(`[print] ${registro.pc} (${registro.usuario}) imprimió: ${documento}`)
+      }
+      res.json({ ok: true, registro, duplicado: ins.rowCount === 0 })
     } catch (e) {
       console.error('[pc] print:', e.message)
       res.status(500).json({ ok: false, error: e.message })
