@@ -100,7 +100,7 @@ export default function DownloadSection() {
             </div>
             <div className="mt-6 space-y-2">
               <h3 className="text-xl font-bold text-white">Windows PC</h3>
-              <p className="text-sm text-slate-400">App + Agente de escritorio</p>
+              <p className="text-sm text-slate-400">App web + Agente de escritorio</p>
             </div>
             <div className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-slate-300 transition group-hover:text-white">
               <FiMonitor size={16} className="text-blue-400" aria-hidden="true" />
@@ -109,7 +109,7 @@ export default function DownloadSection() {
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/30">
-                <FiDownload size={10} /> .exe + .exe
+                <FiDownload size={10} /> Web + .exe
               </span>
             </div>
           </button>
@@ -151,8 +151,8 @@ export default function DownloadSection() {
                 <FiDownload size={18} />
               </span>
               <div>
-                <h3 className="font-bold text-white">Descargar para Windows</h3>
-                <p className="text-xs text-slate-400">Elige qué necesitas instalar</p>
+                <h3 className="font-bold text-white">IMPULSA en tu PC</h3>
+                <p className="text-xs text-slate-400">Accede desde el navegador o instala el agente</p>
               </div>
               <button onClick={() => setModalOpen(false)} className="ml-auto rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white">
                 <FiX size={16} />
@@ -160,23 +160,22 @@ export default function DownloadSection() {
             </div>
 
             <div className="space-y-4 p-6">
-              <a
-                href="/IMPULSA.exe"
-                download
+              <Link
+                to="/login"
                 className="group flex items-start gap-4 rounded-xl border border-white/10 bg-night-800 p-5 transition hover:border-blue-500/40 hover:bg-blue-500/5"
               >
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30 transition group-hover:scale-110">
                   <FiMonitor size={24} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-bold text-white">App principal (Windows)</h4>
-                  <p className="mt-1 text-xs text-slate-400">El programa completo de IMPULSA para gestionar inventario, ventas y facturación.</p>
+                  <h4 className="font-bold text-white">App principal (Web)</h4>
+                  <p className="mt-1 text-xs text-slate-400">El sistema completo desde el navegador: login, paneles, inventario, ventas y facturación.</p>
                   <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/30">
-                    <FiDownload size={10} /> Windows 10/11
+                    <FiMonitor size={10} /> Web · Login y paneles
                   </span>
                 </div>
                 <FiArrowRight size={18} className="mt-4 shrink-0 text-slate-500 transition group-hover:text-blue-400" />
-              </a>
+              </Link>
 
               <a
                 href="/agent/IMPULSA-Agent.exe"
