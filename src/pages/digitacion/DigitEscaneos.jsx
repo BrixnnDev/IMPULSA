@@ -65,6 +65,10 @@ export default function DigitEscaneos() {
 
   const totalHoy = escaneos.filter(esHoy).length
 
+  const extVerDoc = (verDoc?.archivo || '').split('.').pop()?.toLowerCase() || ''
+  const verDocEsImagen = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tif', 'tiff', 'webp'].includes(extVerDoc)
+  const urlVerDoc = verDoc ? `${API}/api/scans/file/${encodeURIComponent(verDoc.archivo)}` : ''
+
   // Descarga sin abrir pestaña ni ventana nueva.
   const descargarDoc = async (e) => {
     try {
@@ -218,11 +222,11 @@ export default function DigitEscaneos() {
       {/* Visor flotante del escaneo (iframe, sin abrir pestaña ni ventana) */}
       {verDoc && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4"
           onClick={() => setVerDoc(null)}
         >
           <div
-            className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl"
+            className="flex h-[100dvh] w-full flex-col overflow-hidden border border-white/10 bg-night-850 shadow-2xl sm:h-[94dvh] sm:max-w-6xl sm:rounded-2xl"
             onClick={(ev) => ev.stopPropagation()}
           >
             <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3.5 sm:px-5">
@@ -251,11 +255,21 @@ export default function DigitEscaneos() {
                 </button>
               </div>
             </div>
-            <iframe
-              src={`${API}/api/scans/file/${encodeURIComponent(verDoc.archivo)}`}
-              title={verDoc.archivo}
-              className="min-h-0 w-full flex-1 bg-slate-200"
-            />
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-slate-200">
+              {verDocEsImagen ? (
+                <img
+                  src={urlVerDoc}
+                  alt={verDoc.archivo}
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <iframe
+                  src={`${urlVerDoc}#toolbar=1&navpanes=0&view=FitH`}
+                  title={verDoc.archivo}
+                  className="h-full w-full border-0"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
