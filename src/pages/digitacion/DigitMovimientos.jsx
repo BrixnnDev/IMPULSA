@@ -25,6 +25,11 @@ const fmtFecha = (p) => {
 
 const esDePc = (p, pc) => p?.pc === pc?.etiqueta || p?.pc === pc?.id || p?.pc === pc?.codigo
 
+const esDelUsuario = (item, user) =>
+  item?.usuario_id
+    ? item.usuario_id === user?.id
+    : item?.responsable === user?.name || item?.usuario === user?.name
+
 export default function DigitMovimientos() {
   const { user, isAdmin } = useAuth()
   const [pcs, setPcs] = useState([])
@@ -65,14 +70,14 @@ export default function DigitMovimientos() {
   )
   const visibles = isAdmin
     ? coincidentes
-    : coincidentes.filter((p) => p.responsable === user?.name || p.usuario === user?.name)
+    : coincidentes.filter((p) => esDelUsuario(p, user))
 
   const hoy = coincidentes.filter(esHoy)
   const totalPaginas = hoy.reduce((a, p) => a + (p.paginas || 1) * (p.copias || 1), 0)
   const totalMaquinas = new Set(coincidentes.map((p) => p.pc).filter(Boolean)).size
 
   const filtradas = pcs
-    .filter((p) => isAdmin || p.responsable === user?.name)
+    .filter((p) => isAdmin || esDelUsuario(p, user))
     .filter((p) => `${p.responsable || ''} ${p.etiqueta || ''}`.toLowerCase().includes(q))
 
   const abrirCarpeta = (pc) => {

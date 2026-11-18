@@ -27,21 +27,38 @@ export function pcRouter(io) {
   ioRef = io
   const r = Router()
 
-  // Admin crea carpeta: solo nombre
+  // Admin crea carpeta, opcionalmente vinculada a un usuario
   r.post('/register', async (req, res) => {
     try {
-      const { nombre } = req.body
+      const { nombre, usuario_id } = req.body
       if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta el nombre.' })
+
+      let responsable = nombre.trim()
+      let email = ''
+      let avatar_url = ''
+      let rol = 'digitador'
+      let uid = ''
+      if (usuario_id) {
+        const uq = await pool.query('SELECT id, name, email, avatar_url, rol FROM users WHERE id = $1', [usuario_id])
+        const u = uq.rows[0]
+        if (!u) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
+        uid = u.id
+        responsable = u.name
+        email = u.email || ''
+        avatar_url = u.avatar_url || ''
+        rol = u.rol || 'digitador'
+      }
+
       const id = `pc-${Date.now().toString(36)}`
       const codigo = generarCodigo()
       const creado = new Date().toISOString()
       await pool.query(
-        `INSERT INTO pcs (id, etiqueta, responsable, codigo, emparejada, fecha_creacion)
-         VALUES ($1,$2,$2,$3,FALSE,$4)`,
-        [id, nombre.trim(), codigo, creado],
+        `INSERT INTO pcs (id, etiqueta, responsable, email, avatar_url, rol, usuario_id, codigo, emparejada, fecha_creacion)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,FALSE,$9)`,
+        [id, nombre.trim(), responsable, email, avatar_url, rol, uid, codigo, creado],
       )
-      const pc = { id, etiqueta: nombre.trim(), responsable: nombre.trim(), ip: '', mac: '', sistema: '', ubicacion: '', codigo, emparejada: false, fecha_creacion: creado }
-      console.log(`[pc] Carpeta creada: ${pc.etiqueta} → código: ${codigo}`)
+      const pc = { id, etiqueta: nombre.trim(), responsable, email, avatar_url, rol, usuario_id: uid, ip: '', mac: '', sistema: '', ubicacion: '', codigo, emparejada: false, fecha_creacion: creado }
+      console.log(`[pc] Carpeta creada: ${pc.etiqueta} → ${responsable} (${uid || 'sin usuario'}) → código: ${codigo}`)
       res.json({ ok: true, pc })
     } catch (e) {
       console.error('[pc] register:', e.message)
@@ -164,6 +181,7 @@ export function pcRouter(io) {
         id,
         pc: found ? found.etiqueta : pc,
         responsable: found ? found.responsable : pc,
+        usuario_id: found?.usuario_id || '',
         usuario: usuario || found?.responsable || pc,
         impresora: impresora || '',
         documento,
@@ -174,10 +192,10 @@ export function pcRouter(io) {
         estado: 'Impreso',
       }
       const ins = await pool.query(
-        `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado, usuario, impresora)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado, usuario, impresora, usuario_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          ON CONFLICT (id) DO NOTHING`,
-        [registro.id, registro.pc, registro.responsable, registro.documento, registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado, registro.usuario, registro.impresora],
+        [registro.id, registro.pc, registro.responsable, registro.documento, registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado, registro.usuario, registro.impresora, registro.usuario_id],
       )
       await pool.query(`DELETE FROM prints WHERE id NOT IN (SELECT id FROM prints ORDER BY fecha DESC LIMIT 500)`)
       if (ins.rowCount > 0) {
@@ -223,6 +241,45 @@ export function pcRouter(io) {
       const q = await pool.query('SELECT * FROM prints ORDER BY fecha DESC')
       res.json(q.rows.map((p) => ({ ...p, paginas: p.paginas, copias: p.copias })))
     } catch (e) { console.error('[pc] prints:', e.message); res.status(500).json({ ok: false, error: e.message }) }
+  })
+
+  // Asignar / cambiar el usuario dueño de una PC
+  r.patch('/:id', async (req, res) => {
+    try {
+      const { usuario_id } = req.body
+      const q = await pool.query('SELECT * FROM pcs WHERE id = $1', [req.params.id])
+      const found = q.rows[0]
+      if (!found) return res.status(404).json({ ok: false, error: 'PC no encontrada.' })
+
+      let responsable = found.etiqueta
+      let email = ''
+      let avatar_url = ''
+      let rol = 'digitador'
+      let uid = ''
+
+      if (usuario_id) {
+        const uq = await pool.query('SELECT id, name, email, avatar_url, rol FROM users WHERE id = $1', [usuario_id])
+        const u = uq.rows[0]
+        if (!u) return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' })
+        uid = u.id
+        responsable = u.name
+        email = u.email || ''
+        avatar_url = u.avatar_url || ''
+        rol = u.rol || 'digitador'
+      }
+
+      await pool.query(
+        `UPDATE pcs SET usuario_id = $1, responsable = $2, email = $3, avatar_url = $4, rol = $5 WHERE id = $6`,
+        [uid, responsable, email, avatar_url, rol, found.id],
+      )
+      const updated = (await pool.query('SELECT * FROM pcs WHERE id = $1', [found.id])).rows[0]
+      io.emit('pc:paired', { id: updated.id, etiqueta: updated.etiqueta })
+      console.log(`[pc] ${updated.etiqueta} vinculada a ${responsable} (${uid || 'sin usuario'})`)
+      res.json({ ok: true, pc: updated })
+    } catch (e) {
+      console.error('[pc] patch:', e.message)
+      res.status(500).json({ ok: false, error: e.message })
+    }
   })
 
   // Borrar una impresión del historial (pruebas / correcciones)

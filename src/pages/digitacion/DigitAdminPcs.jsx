@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { io } from 'socket.io-client'
-import { FiMonitor, FiPlus, FiTrash2, FiWifi, FiWifiOff, FiCopy, FiX, FiCheckCircle } from 'react-icons/fi'
+import { FiMonitor, FiPlus, FiTrash2, FiWifi, FiWifiOff, FiCopy, FiX, FiCheckCircle, FiUser } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -8,8 +8,10 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 export default function DigitAdminPcs() {
   const { isAdmin } = useAuth()
   const [pcs, setPcs] = useState([])
+  const [usuarios, setUsuarios] = useState([])
   const [formOpen, setFormOpen] = useState(false)
   const [nombre, setNombre] = useState('')
+  const [usuarioId, setUsuarioId] = useState('')
   const [codigoModal, setCodigoModal] = useState(null)
   const [eliminarId, setEliminarId] = useState(null)
   const [pcStatus, setPcStatus] = useState({})
@@ -20,7 +22,10 @@ export default function DigitAdminPcs() {
 
   useEffect(() => {
     if (!isAdmin) return
-    const cargar = () => fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
+    const cargar = () => {
+      fetch(`${API}/api/pc/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPcs(d) }).catch(() => {})
+      fetch(`${API}/api/users/list`).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsuarios(d) }).catch(() => {})
+    }
     cargar()
     const id = setInterval(cargar, 500)
     const s = io(API, { transports: ['websocket'], reconnectionAttempts: 5 })
@@ -64,7 +69,7 @@ export default function DigitAdminPcs() {
       const res = await fetch(`${API}/api/pc/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: nombre.trim() }),
+        body: JSON.stringify({ nombre: nombre.trim(), usuario_id: usuarioId || undefined }),
       })
       const data = await res.json()
       if (data.ok) {
@@ -72,9 +77,26 @@ export default function DigitAdminPcs() {
         setCodigoModal({ ...data.pc, _fase: 'codigo' })
         setFormOpen(false)
         setNombre('')
+        setUsuarioId('')
       }
     } catch (e) {
       console.error('Error:', e)
+    }
+  }
+
+  const asignarUsuario = async (id, usuario_id) => {
+    try {
+      const res = await fetch(`${API}/api/pc/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario_id }),
+      })
+      const data = await res.json()
+      if (!data.ok) return
+      setPcs((prev) => prev.map((p) => (p.id === id ? data.pc : p)))
+      setCodigoModal((prev) => (prev && prev.id === id ? { ...prev, ...data.pc } : prev))
+    } catch (e) {
+      console.error('Error al asignar usuario:', e)
     }
   }
 
@@ -153,6 +175,9 @@ export default function DigitAdminPcs() {
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400 transition group-hover:scale-110"><FiMonitor size={22} /></span>
                 <span className="block w-full truncate px-0.5 text-xs font-bold text-white sm:text-sm">{p.responsable}</span>
                 <span className="text-[11px] text-slate-500">{p.etiqueta}</span>
+                <span className={`flex items-center gap-1 text-[10px] font-semibold ${p.usuario_id ? 'text-blue-300' : 'text-amber-400'}`}>
+                  <FiUser size={11} /> {p.usuario_id ? 'Vinculada' : 'Sin usuario'}
+                </span>
                 <span className="flex items-center gap-1 text-[10px] font-semibold">
                   {p.emparejada ? (
                     <>
@@ -186,7 +211,17 @@ export default function DigitAdminPcs() {
             </div>
             <div>
               <label className="label-form">Nombre *</label>
-              <input autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && crearPC()} placeholder="Ej. María Victoria" className="input-field" />
+              <input autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && crearPC()} placeholder="Ej. PC de María Victoria" className="input-field" />
+            </div>
+            <div>
+              <label className="label-form">Usuario vinculado</label>
+              <select value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} className="input-field">
+                <option value="">Sin usuario</option>
+                {usuarios.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name} · {u.email}{u.rol === 'admin' ? ' (admin)' : ''}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11px] text-slate-500">La PC aparecerá en la carpeta de este usuario y sus impresiones se le atribuirán a él.</p>
             </div>
             <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
               <button onClick={() => setFormOpen(false)} className="btn-ghost !px-5 !py-2.5 !text-xs">Cancelar</button>
@@ -286,6 +321,20 @@ export default function DigitAdminPcs() {
                     {codigoModal.mac && <div className="flex justify-between text-xs"><span className="text-slate-500">MAC</span><span className="font-mono font-bold text-slate-200">{codigoModal.mac}</span></div>}
                     {codigoModal.sistema && <div className="flex justify-between text-xs"><span className="text-slate-500">Sistema</span><span className="font-bold text-slate-200">{codigoModal.sistema}</span></div>}
                     {!codigoModal.ip && !codigoModal.mac && <p className="text-center text-xs text-slate-500">Esperando datos del agente...</p>}
+                  </div>
+                  <div className="space-y-2 rounded-xl border border-blue-500/20 bg-blue-600/5 p-4">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><FiUser size={13} className="text-blue-400" /> Usuario vinculado</p>
+                    <select
+                      value={codigoModal.usuario_id || ''}
+                      onChange={(e) => asignarUsuario(codigoModal.id, e.target.value)}
+                      className="input-field !py-2 !text-xs"
+                    >
+                      <option value="">Sin usuario</option>
+                      {usuarios.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name} · {u.email}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500">Al cambiarlo, sus impresiones aparecerán en la carpeta del nuevo usuario.</p>
                   </div>
                 </div>
               )}

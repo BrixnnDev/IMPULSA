@@ -66,8 +66,11 @@ export async function initDb() {
         codigo TEXT NOT NULL,
         emparejada BOOLEAN NOT NULL DEFAULT FALSE,
         fecha_creacion TEXT NOT NULL,
-        fecha_emparejada TEXT
+        fecha_emparejada TEXT,
+        usuario_id TEXT DEFAULT ''
       );
+
+      ALTER TABLE pcs ADD COLUMN IF NOT EXISTS usuario_id TEXT DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS prints (
         id TEXT PRIMARY KEY,
@@ -80,11 +83,13 @@ export async function initDb() {
         fecha TEXT NOT NULL,
         estado TEXT NOT NULL DEFAULT 'Impreso',
         usuario TEXT DEFAULT '',
-        impresora TEXT DEFAULT ''
+        impresora TEXT DEFAULT '',
+        usuario_id TEXT DEFAULT ''
       );
 
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS usuario TEXT DEFAULT '';
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS impresora TEXT DEFAULT '';
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS usuario_id TEXT DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS carpetas (
         id TEXT PRIMARY KEY,
