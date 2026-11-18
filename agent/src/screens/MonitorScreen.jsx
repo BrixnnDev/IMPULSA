@@ -29,8 +29,14 @@ export default function MonitorScreen({ serverUrl, pcInfo }) {
       setToasts(prev => [...prev, { ...event, toastId: Date.now() }].slice(-3))
     })
 
-    socket.on('scan:event', (data) => {
-      const event = { ...data, id: Date.now(), type: 'scan', time: new Date() }
+    socket.on('scan:new', (data) => {
+      const event = {
+        ...data,
+        id: Date.now(),
+        type: 'scan',
+        documentName: data.nombre || data.archivo,
+        time: new Date(data.fecha || Date.now()),
+      }
       setEvents(prev => [event, ...prev].slice(0, 50))
       setToasts(prev => [...prev, { ...event, toastId: Date.now() }].slice(-3))
     })

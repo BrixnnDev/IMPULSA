@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::net::UdpSocket;
 use std::path::PathBuf;
+use std::time::Duration;
 use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,6 +20,16 @@ struct SystemInfo {
     mac_address: String,
     os_version: String,
 }
+
+#[derive(Debug, Deserialize)]
+struct ScanConfig {
+    carpeta: Option<String>,
+    servidor: Option<String>,
+    persona: Option<String>,
+}
+
+const DEFAULT_SCAN_FOLDER: &str = "C:\\Escanner";
+const DEFAULT_API: &str = "https://impulsa-api-v1l0.onrender.com";
 
 fn get_state_path(app: &tauri::AppHandle) -> PathBuf {
     let dir = app
@@ -137,6 +149,113 @@ fn clear_state(app: tauri::AppHandle) -> Result<(), String> {
         fs::remove_file(&path).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+fn get_scan_config_path() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("config.json")))
+        .unwrap_or_else(|| PathBuf::from("config.json"))
+}
+
+fn get_sent_path(base: &PathBuf) -> PathBuf {
+    base.join("sent.json")
+}
+
+fn load_scan_config() -> ScanConfig {
+    fs::read_to_string(get_scan_config_path())
+        .ok()
+        .and_then(|s| serde_json::from_str::<ScanConfig>(&s).ok())
+        .unwrap_or(ScanConfig {
+            carpeta: None,
+            servidor: None,
+            persona: None,
+        })
+}
+
+fn upload_scan_file(path: &PathBuf, persona: &str, api: &str) -> bool {
+    use std::process::Command;
+    #[cfg(windows)]
+    use std::os::windows::process::CommandExt;
+    #[cfg(windows)]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    let mut cmd = Command::new("curl.exe");
+    cmd.arg("-s")
+        .arg("-X")
+        .arg("POST")
+        .arg("-F")
+        .arg(format!("file=@{}", path.to_string_lossy()))
+        .arg("-F")
+        .arg(format!("persona={}", persona))
+        .arg(format!("{}/api/scans/upload", api.trim_end_matches('/')));
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    match cmd.output() {
+        Ok(out) => {
+            out.status.success() && String::from_utf8_lossy(&out.stdout).contains("\"ok\":true")
+        }
+        Err(_) => false,
+    }
+}
+
+// Sube automáticamente los archivos nuevos de la carpeta del escáner.
+fn start_scan_watcher(storage_dir: PathBuf) {
+    std::thread::spawn(move || {
+        let cfg = load_scan_config();
+        let folder = PathBuf::from(cfg.carpeta.as_deref().unwrap_or(DEFAULT_SCAN_FOLDER));
+        let api = cfg.servidor.unwrap_or_else(|| DEFAULT_API.to_string());
+        let persona = cfg.persona.unwrap_or_else(|| "Digitador".to_string());
+        fs::create_dir_all(&storage_dir).ok();
+        let sent_path = get_sent_path(&storage_dir);
+
+        let mut sent: HashSet<String> = fs::read_to_string(&sent_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
+            .map(|v| v.into_iter().collect())
+            .unwrap_or_default();
+        let mut sizes: HashMap<String, u64> = HashMap::new();
+
+        loop {
+            std::thread::sleep(Duration::from_secs(3));
+            if !folder.is_dir() {
+                continue;
+            }
+            let entries = match fs::read_dir(&folder) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with('.') || sent.contains(&name) {
+                    continue;
+                }
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let size = match fs::metadata(&path) {
+                    Ok(m) => m.len(),
+                    Err(_) => continue,
+                };
+                if size == 0 {
+                    continue;
+                }
+                // Espera a que el escáner termine de escribir el archivo.
+                if sizes.get(&name) != Some(&size) {
+                    sizes.insert(name.clone(), size);
+                    continue;
+                }
+                if upload_scan_file(&path, &persona, &api) {
+                    sent.insert(name.clone());
+                    if let Ok(json) = serde_json::to_string(&sent.iter().collect::<Vec<_>>()) {
+                        let _ = fs::write(&sent_path, json);
+                    }
+                }
+            }
+        }
+    });
 }
 
 fn sanitize_bat_value(value: &str) -> String {
@@ -274,6 +393,12 @@ pub fn run() {
                     }
                 }
             });
+
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| PathBuf::from("."));
+            start_scan_watcher(data_dir);
 
             Ok(())
         })
