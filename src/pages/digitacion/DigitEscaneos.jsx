@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
-import { FiFileText, FiSearch, FiDownload, FiEye, FiLoader } from 'react-icons/fi'
+import { FiFileText, FiSearch, FiDownload, FiEye, FiLoader, FiX } from 'react-icons/fi'
 import RocketLogo from '../../components/RocketLogo'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8787'
@@ -17,6 +17,7 @@ export default function DigitEscaneos() {
   const [busqueda, setBusqueda] = useState('')
   const [soloHoy, setSoloHoy] = useState(false)
   const [escaneresOnline, setEscaneresOnline] = useState([])
+  const [verDoc, setVerDoc] = useState(null)
 
   const cargarEscaneos = () => {
     fetch(`${API}/api/scans/list?limit=500`)
@@ -63,6 +64,24 @@ export default function DigitEscaneos() {
   )
 
   const totalHoy = escaneos.filter(esHoy).length
+
+  // Descarga sin abrir pestaña ni ventana nueva.
+  const descargarDoc = async (e) => {
+    try {
+      const res = await fetch(`${API}/api/scans/file/${encodeURIComponent(e.archivo)}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = e.archivo
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      /* silencioso: el visor sigue disponible */
+    }
+  }
 
   return (
     <div className="flex max-h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden lg:max-h-[calc(100vh-8rem)]">
@@ -167,20 +186,19 @@ export default function DigitEscaneos() {
                 </p>
               </div>
               <button
-                onClick={() => window.open(`${API}/api/scans/file/${encodeURIComponent(e.archivo)}`, '_blank')}
+                onClick={() => setVerDoc(e)}
                 title="Ver documento"
                 className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-blue-600/15 hover:text-blue-300"
               >
                 <FiEye size={16} />
               </button>
-              <a
-                href={`${API}/api/scans/file/${encodeURIComponent(e.archivo)}`}
-                download
+              <button
+                onClick={() => descargarDoc(e)}
                 title="Descargar"
                 className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-blue-600/15 hover:text-blue-300"
               >
                 <FiDownload size={16} />
-              </a>
+              </button>
             </li>
           ))}
           {filtrados.length === 0 && (
@@ -196,6 +214,51 @@ export default function DigitEscaneos() {
           )}
         </ul>
       </div>
+
+      {/* Visor flotante del escaneo (iframe, sin abrir pestaña ni ventana) */}
+      {verDoc && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6"
+          onClick={() => setVerDoc(null)}
+        >
+          <div
+            className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-night-850 shadow-2xl"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3.5 sm:px-5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-400">
+                <FiFileText size={16} />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-white">{verDoc.archivo}</p>
+                <p className="text-[11px] text-slate-400">
+                  {formatearTamano(verDoc.size)} · {new Date(verDoc.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                </p>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <button
+                  onClick={() => descargarDoc(verDoc)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-500"
+                >
+                  <FiDownload size={13} /> Descargar
+                </button>
+                <button
+                  onClick={() => setVerDoc(null)}
+                  aria-label="Cerrar visor"
+                  className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+            </div>
+            <iframe
+              src={`${API}/api/scans/file/${encodeURIComponent(verDoc.archivo)}`}
+              title={verDoc.archivo}
+              className="min-h-0 w-full flex-1 bg-slate-200"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
