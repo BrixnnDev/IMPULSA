@@ -515,7 +515,7 @@ try {
 try {
   $cs = Join-Path $dir 'impulsa_spooler.cs'
   if (Test-Path $cs) {
-    Add-Type -Path $cs -ReferencedAssemblies System.Drawing -ErrorAction Stop
+    Add-Type -Path $cs -ReferencedAssemblies @('System.Drawing','PresentationCore','WindowsBase','PresentationFramework','ReachFramework','System.Xaml') -ErrorAction Stop
     $captureJson = [ImpulsaSpooler]::GetCaptureJson($dir)
     if (-not [string]::IsNullOrWhiteSpace($captureJson)) {
       foreach ($captureLine in ($captureJson -split "`n")) {
@@ -627,6 +627,11 @@ const SPOOLER_CS: &str = r##"using System;
  using System.IO;
  using System.Text;
  using System.Runtime.InteropServices;
+ using System.Windows;
+ using System.Windows.Documents;
+ using System.Windows.Media;
+ using System.Windows.Media.Imaging;
+ using System.Windows.Xps.Packaging;
  
  public static class ImpulsaSpooler
  {
@@ -829,7 +834,89 @@ const SPOOLER_CS: &str = r##"using System;
      {
          return datos.Length > 4 && datos[0] == 1 && datos[1] == 0 && datos[2] == 0 && datos[3] == 0;
      }
- 
+
+     // Las impresoras XPS/OXPS guardan un ZIP con FixedDocumentSequence dentro
+     // del .spl. Es un documento real y se puede convertir a PDF para el visor.
+     static bool ContieneAscii(byte[] datos, string texto)
+     {
+         if (datos == null || datos.Length == 0 || string.IsNullOrEmpty(texto)) return false;
+         byte[] buscado = Encoding.ASCII.GetBytes(texto);
+         for (int i = 0; i <= datos.Length - buscado.Length; i++)
+         {
+             bool igual = true;
+             for (int j = 0; j < buscado.Length; j++)
+             {
+                 if (datos[i + j] != buscado[j]) { igual = false; break; }
+             }
+             if (igual) return true;
+         }
+         return false;
+     }
+
+     static bool EsXps(byte[] datos)
+     {
+         return datos.Length > 4 && datos[0] == (byte)'P' && datos[1] == (byte)'K'
+             && (ContieneAscii(datos, "FixedDocumentSequence") || ContieneAscii(datos, "Documents/1/"));
+     }
+
+     static byte[] XpsToPdf(byte[] datos)
+     {
+         string temporal = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".xps");
+         File.WriteAllBytes(temporal, datos);
+         try
+         {
+             XpsDocument doc = new XpsDocument(temporal, FileAccess.Read);
+             try
+             {
+                 FixedDocumentSequence seq = doc.GetFixedDocumentSequence();
+                 if (seq == null) throw new Exception("XPS sin FixedDocumentSequence");
+                 DocumentPaginator paginator = ((IDocumentPaginatorSource)seq).DocumentPaginator;
+                 var jpegs = new List<byte[]>();
+                 var widths = new List<int>();
+                 var heights = new List<int>();
+                 int paginas = Math.Max(1, paginator.PageCount);
+                 for (int p = 0; p < paginas; p++)
+                 {
+                     DocumentPage pagina = paginator.GetPage(p);
+                     Visual visual = pagina.Visual;
+                     if (visual == null) continue;
+                     Rect bounds = VisualTreeHelper.GetDescendantBounds(visual);
+                     int w = Math.Max(1, (int)Math.Ceiling(bounds.Width));
+                     int h = Math.Max(1, (int)Math.Ceiling(bounds.Height));
+                     double escala = Math.Min(1.0, 1800.0 / Math.Max(w, h));
+                     if (escala < 1.0) { w = Math.Max(1, (int)(w * escala)); h = Math.Max(1, (int)(h * escala)); }
+                     RenderTargetBitmap bmp = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+                     DrawingVisual dv = new DrawingVisual();
+                     using (DrawingContext ctx = dv.RenderOpen())
+                     {
+                         ctx.DrawRectangle(System.Windows.Media.Brushes.White, null, new Rect(0, 0, w, h));
+                         ctx.DrawRectangle(new VisualBrush(visual), null, new Rect(0, 0, w, h));
+                     }
+                     bmp.Render(dv);
+                     using (var ms = new MemoryStream())
+                     {
+                         var encoder = new JpegBitmapEncoder();
+                         encoder.Frames.Add(BitmapFrame.Create(bmp));
+                         encoder.Save(ms);
+                         jpegs.Add(ms.ToArray());
+                     }
+                     widths.Add(w);
+                     heights.Add(h);
+                 }
+                 if (jpegs.Count == 0) throw new Exception("XPS sin paginas renderizables");
+                 return ImagesToPdf(jpegs, widths, heights);
+             }
+             finally
+             {
+                 try { doc.Close(); } catch {}
+             }
+         }
+         finally
+         {
+             try { File.Delete(temporal); } catch {}
+         }
+     }
+
      static MemoryStream pdfStream;
  
      static byte[] Ascii(string s) { return Encoding.ASCII.GetBytes(s); }
@@ -894,7 +981,7 @@ const SPOOLER_CS: &str = r##"using System;
                  {
                      using (var g = Graphics.FromImage(bmp))
                      {
-                         g.Clear(Color.White);
+                         g.Clear(System.Drawing.Color.White);
                          g.DrawImage(mf, new Rectangle(0, 0, w, h));
                      }
                      using (var jpg = new MemoryStream())
@@ -963,6 +1050,14 @@ const SPOOLER_CS: &str = r##"using System;
                  if (EsEmf(datos))
                  {
                      byte[] pdf = EmfToPdf(datos);
+                     nombreSalida = NombreSeguro(doc) + ".pdf";
+                     salida = Path.Combine(dir, "capture-" + Guid.NewGuid().ToString("N").Substring(0, 8) + "-" + nombreSalida);
+                     File.WriteAllBytes(salida, pdf);
+                     mime = "application/pdf";
+                 }
+                 else if (EsXps(datos))
+                 {
+                     byte[] pdf = XpsToPdf(datos);
                      nombreSalida = NombreSeguro(doc) + ".pdf";
                      salida = Path.Combine(dir, "capture-" + Guid.NewGuid().ToString("N").Substring(0, 8) + "-" + nombreSalida);
                      File.WriteAllBytes(salida, pdf);
