@@ -1,6 +1,14 @@
 import { Router } from 'express'
 import { randomUUID } from 'crypto'
+import multer from 'multer'
+import path from 'path'
 import { pool } from './db.js'
+
+// El agente puede adjuntar el documento real capturado del spooler de Windows.
+const uploadPrint = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+})
 
 const pcState = new Map()
 let ioRef = null
@@ -173,8 +181,9 @@ export function pcRouter(io) {
     try { res.json(await todosLosPcs()) } catch (e) { console.error('[pc] list:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })
 
-  // Evento de impresión: el agente reporta la impresión real de Windows
-  r.post('/print', async (req, res) => {
+  // Evento de impresión: el agente reporta la impresión real de Windows.
+  // Acepta JSON (solo metadata) o multipart con el documento capturado.
+  r.post('/print', uploadPrint.single('file'), async (req, res) => {
     try {
       const { pc, documento, paginas, copias, usuario, impresora, fecha, evento_id } = req.body
       if (!pc || !documento) return res.status(400).json({ ok: false })
@@ -182,6 +191,7 @@ export function pcRouter(io) {
       const found = q.rows[0]
       const fechaReal = fecha && !Number.isNaN(new Date(fecha).getTime()) ? new Date(fecha) : new Date()
       const id = evento_id ? `PRN-${String(evento_id).replace(/[^A-Za-z0-9_-]/g, '')}` : `PRN-${Date.now().toString(36)}`
+      const archivo = req.file
       const registro = {
         id,
         pc: found ? found.etiqueta : pc,
@@ -195,17 +205,26 @@ export function pcRouter(io) {
         hora: fechaReal.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
         fecha: fechaReal.toISOString(),
         estado: 'Impreso',
+        archivo_nombre: archivo?.originalname || '',
+        archivo_tipo: archivo?.mimetype || '',
+        archivo_size: archivo?.size || 0,
+        tieneArchivo: Boolean(archivo),
       }
       const ins = await pool.query(
-        `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado, usuario, impresora, usuario_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado, usuario, impresora, usuario_id, archivo, archivo_nombre, archivo_tipo, archivo_size)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
          ON CONFLICT (id) DO NOTHING`,
-        [registro.id, registro.pc, registro.responsable, registro.documento, registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado, registro.usuario, registro.impresora, registro.usuario_id],
+        [
+          registro.id, registro.pc, registro.responsable, registro.documento,
+          registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado,
+          registro.usuario, registro.impresora, registro.usuario_id,
+          archivo?.buffer || null, registro.archivo_nombre, registro.archivo_tipo, registro.archivo_size,
+        ],
       )
       await pool.query(`DELETE FROM prints WHERE id NOT IN (SELECT id FROM prints ORDER BY fecha DESC LIMIT 500)`)
       if (ins.rowCount > 0) {
         io.emit('pc:print', registro)
-        console.log(`[print] ${registro.pc} (${registro.usuario}) imprimió: ${documento}`)
+        console.log(`[print] ${registro.pc} (${registro.usuario}) imprimió: ${documento}${archivo ? ' + documento' : ''}`)
       }
       res.json({ ok: true, registro, duplicado: ins.rowCount === 0 })
     } catch (e) {
@@ -240,12 +259,42 @@ export function pcRouter(io) {
     }
   })
 
-  // Historial de impresiones (todas las PCs)
+  // Historial de impresiones (todas las PCs). Nunca devuelve el BYTEA del documento.
   r.get('/prints', async (_req, res) => {
     try {
-      const q = await pool.query('SELECT * FROM prints ORDER BY fecha DESC')
-      res.json(q.rows.map((p) => ({ ...p, paginas: p.paginas, copias: p.copias })))
+      const q = await pool.query(
+        `SELECT id, pc, responsable, documento, paginas, copias, hora, fecha, estado,
+                usuario, impresora, usuario_id, archivo_nombre, archivo_tipo, archivo_size
+         FROM prints ORDER BY fecha DESC`,
+      )
+      res.json(q.rows.map((p) => ({
+        ...p,
+        tieneArchivo: Boolean(p.archivo_nombre && p.archivo_size),
+      })))
     } catch (e) { console.error('[pc] prints:', e.message); res.status(500).json({ ok: false, error: e.message }) }
+  })
+
+  // Documento real impreso, capturado por el agente desde el spooler de Windows.
+  r.get('/prints/:id/file', async (req, res) => {
+    try {
+      const q = await pool.query(
+        'SELECT archivo, archivo_nombre, archivo_tipo FROM prints WHERE id = $1 LIMIT 1',
+        [req.params.id],
+      )
+      const fila = q.rows[0]
+      if (!fila?.archivo) return res.status(404).json({ ok: false, error: 'Esta impresión no tiene documento adjunto.' })
+      const nombre = path.basename(fila.archivo_nombre || 'documento.pdf').replace(/["\r\n]/g, '')
+      const ext = path.extname(nombre).toLowerCase()
+      const tipos = {
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+      }
+      res.type(tipos[ext] || fila.archivo_tipo || 'application/octet-stream')
+      res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${nombre}"`)
+      res.send(fila.archivo)
+    } catch (e) { console.error('[pc] print file:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })
 
   // Asignar / cambiar el usuario dueño de una PC

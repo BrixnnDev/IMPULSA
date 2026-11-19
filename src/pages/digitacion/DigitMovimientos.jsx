@@ -23,6 +23,18 @@ const fmtFecha = (p) => {
   })
 }
 
+// Muestra el usuario de IMPULSA y, entre paréntesis, el usuario de Windows
+// que reportó el agente (ej. "BRAYAN (KYB)").
+const fmtUsuario = (p) => {
+  const impulsa = p?.responsable || ''
+  const windows = p?.usuario || ''
+  if (impulsa && windows && impulsa !== windows) return `${impulsa} (${windows})`
+  return impulsa || windows || 'Usuario desconocido'
+}
+
+const archivoUrl = (r) => `${API}/api/pc/prints/${encodeURIComponent(r?.id || '')}/file`
+const tieneDocumento = (r) => Boolean(r?.tieneArchivo || r?.archivo_nombre)
+
 const esDePc = (p, pc) => p?.pc === pc?.etiqueta || p?.pc === pc?.id || p?.pc === pc?.codigo
 
 const esDelUsuario = (item, user) =>
@@ -94,17 +106,25 @@ export default function DigitMovimientos() {
   })
 
   const descargarImpresion = (r) => {
+    if (tieneDocumento(r)) {
+      const a = document.createElement('a')
+      a.href = `${archivoUrl(r)}?download=1`
+      a.rel = 'noopener'
+      a.click()
+      return
+    }
     const txt = [
       'IMPULSA — Registro de impresión',
       `Código: ${r.id}`,
       `Documento: ${r.documento}`,
       `Carpeta: ${r.responsable || ''}`,
-      `Impreso por: ${r.usuario || r.responsable || ''}`,
+      `Impreso por: ${fmtUsuario(r)}`,
       `Máquina: ${r.pc || ''}`,
       `Impresora: ${r.impresora || 'No identificada'}`,
       `Copias: ${r.copias || 1} · Páginas: ${r.paginas || 1}`,
       `Fecha: ${fmtFecha(r)}`,
       `Estado: ${r.estado || 'Impreso'}`,
+      'Nota: el archivo original no pudo ser capturado del spooler de Windows.',
     ].join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }))
@@ -193,7 +213,7 @@ export default function DigitMovimientos() {
                   <div className="min-w-[200px] flex-1">
                     <p className="truncate text-sm font-semibold text-white">{p.documento || 'Documento sin nombre'}</p>
                     <p className="text-xs text-slate-500">
-                      {p.usuario || p.responsable || 'Usuario desconocido'}
+                      {fmtUsuario(p)}
                       {' · '}<span className="text-blue-300">{p.pc || 'PC no identificada'}</span>
                       {' · '}{p.impresora || 'Impresora no identificada'}
                     </p>
@@ -232,27 +252,40 @@ export default function DigitMovimientos() {
                 <button onClick={() => setVerPdf(null)} className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
               </div>
             </div>
-            <div className="overflow-y-auto bg-slate-300/10 p-4 sm:p-8">
-              <div className="mx-auto w-full max-w-[620px] rounded-md bg-white p-7 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] sm:p-10">
-                <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
-                  <div><p className="font-serif text-xl font-black tracking-tight text-slate-900">IMPULSA</p><p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Registro de impresión</p></div>
-                  <div className="flex gap-[2px]">{[38, 24, 30, 18, 26, 34].map((h, i) => <span key={i} className="w-[3px] bg-slate-900" style={{ height: `${h}px` }} />)}</div>
-                </div>
-                <h3 className="mt-6 font-serif text-2xl font-bold text-slate-900">{verPdf.documento}</h3>
-                <dl className="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 text-xs">
-                  <div><dt className="font-mono uppercase tracking-wider text-slate-400">Código</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.id}</dd></div>
-                  <div><dt className="font-mono uppercase tracking-wider text-slate-400">Fecha</dt><dd className="mt-0.5 font-semibold text-slate-800">{fmtFecha(verPdf)}</dd></div>
-                  <div><dt className="font-mono uppercase tracking-wider text-slate-400">Impreso por</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.usuario || verPdf.responsable}</dd></div>
-                  <div><dt className="font-mono uppercase tracking-wider text-slate-400">Carpeta</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.responsable}</dd></div>
-                  <div><dt className="font-mono uppercase tracking-wider text-slate-400">Máquina</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.pc}</dd></div>
-                  <div><dt className="font-mono uppercase tracking-wider text-slate-400">Impresora</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.impresora || 'No identificada'}</dd></div>
-                </dl>
-                <div className="mt-8 flex items-end justify-between border-t border-slate-200 pt-5">
-                  <div><span className="block h-9 w-36 border-b border-slate-400 font-serif text-lg italic text-slate-400">firma</span><p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">{verPdf.usuario || verPdf.responsable}</p></div>
-                  <p className="font-mono text-[10px] text-slate-400">Página 1 de {verPdf.paginas || 1}</p>
+            {tieneDocumento(verPdf) ? (
+              <div className="min-h-0 flex-1 bg-slate-300/10 p-3 sm:p-5">
+                <iframe
+                  src={archivoUrl(verPdf)}
+                  title={`Documento impreso: ${verPdf.documento}`}
+                  className="h-[65vh] min-h-[420px] w-full rounded-lg bg-white shadow-inner"
+                />
+              </div>
+            ) : (
+              <div className="overflow-y-auto bg-slate-300/10 p-4 sm:p-8">
+                <div className="mx-auto w-full max-w-[620px] rounded-md bg-white p-7 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] sm:p-10">
+                  <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
+                    <div><p className="font-serif text-xl font-black tracking-tight text-slate-900">IMPULSA</p><p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Registro de impresión</p></div>
+                    <div className="flex gap-[2px]">{[38, 24, 30, 18, 26, 34].map((h, i) => <span key={i} className="w-[3px] bg-slate-900" style={{ height: `${h}px` }} />)}</div>
+                  </div>
+                  <h3 className="mt-6 font-serif text-2xl font-bold text-slate-900">{verPdf.documento}</h3>
+                  <dl className="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 text-xs">
+                    <div><dt className="font-mono uppercase tracking-wider text-slate-400">Código</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.id}</dd></div>
+                    <div><dt className="font-mono uppercase tracking-wider text-slate-400">Fecha</dt><dd className="mt-0.5 font-semibold text-slate-800">{fmtFecha(verPdf)}</dd></div>
+                    <div><dt className="font-mono uppercase tracking-wider text-slate-400">Impreso por</dt><dd className="mt-0.5 font-semibold text-slate-800">{fmtUsuario(verPdf)}</dd></div>
+                    <div><dt className="font-mono uppercase tracking-wider text-slate-400">Carpeta</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.responsable}</dd></div>
+                    <div><dt className="font-mono uppercase tracking-wider text-slate-400">Máquina</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.pc}</dd></div>
+                    <div><dt className="font-mono uppercase tracking-wider text-slate-400">Impresora</dt><dd className="mt-0.5 font-semibold text-slate-800">{verPdf.impresora || 'No identificada'}</dd></div>
+                  </dl>
+                  <p className="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-center text-[11px] text-amber-700">
+                    El archivo original no pudo capturarse del spooler de Windows en esta impresión.
+                  </p>
+                  <div className="mt-8 flex items-end justify-between border-t border-slate-200 pt-5">
+                    <div><span className="block h-9 w-36 border-b border-slate-400 font-serif text-lg italic text-slate-400">firma</span><p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">{fmtUsuario(verPdf)}</p></div>
+                    <p className="font-mono text-[10px] text-slate-400">Página 1 de {verPdf.paginas || 1}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

@@ -341,6 +341,77 @@ fn post_json(path: &str, payload: &str, api: &str) -> bool {
     matches!(cmd.output(), Ok(out) if out.status.success())
 }
 
+// Envía la impresión junto con el documento real capturado del spooler.
+fn post_print_file(
+    pc: &str,
+    id: &str,
+    documento: &str,
+    usuario: &str,
+    impresora: &str,
+    paginas: i64,
+    fecha: &str,
+    archivo: &PathBuf,
+    nombre: &str,
+    mime: &str,
+    api: &str,
+) -> bool {
+    use std::process::Command;
+    #[cfg(windows)]
+    use std::os::windows::process::CommandExt;
+    #[cfg(windows)]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    let nombre = if nombre.is_empty() {
+        archivo
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "documento.pdf".to_string())
+    } else {
+        nombre.to_string()
+    };
+    let mime = if mime.is_empty() {
+        if nombre.to_lowercase().ends_with(".pdf") {
+            "application/pdf"
+        } else {
+            "application/octet-stream"
+        }
+    } else {
+        mime
+    };
+
+    let mut cmd = Command::new("curl.exe");
+    cmd.arg("-s")
+        .arg("-X")
+        .arg("POST")
+        .arg("-F")
+        .arg(format!("pc={}", pc))
+        .arg("-F")
+        .arg(format!("evento_id={}", id))
+        .arg("-F")
+        .arg(format!("documento={}", documento))
+        .arg("-F")
+        .arg(format!("usuario={}", usuario))
+        .arg("-F")
+        .arg(format!("impresora={}", impresora))
+        .arg("-F")
+        .arg(format!("paginas={}", paginas))
+        .arg("-F")
+        .arg(format!("copias=1"))
+        .arg("-F")
+        .arg(format!("fecha={}", fecha))
+        .arg("-F")
+        .arg(format!(
+            "file=@{};filename={};type={}",
+            archivo.to_string_lossy(),
+            nombre,
+            mime
+        ))
+        .arg(format!("{}/api/pc/print", api.trim_end_matches('/')));
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    matches!(cmd.output(), Ok(out) if out.status.success())
+}
+
 fn load_pairing(storage_dir: &PathBuf) -> (String, String) {
     let data = fs::read_to_string(storage_dir.join("state.json")).unwrap_or_default();
     let value: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
@@ -438,11 +509,19 @@ try {
   if ($eventos.Count -gt 0) { Set-Content -Path $lastFile -Value $maxId }
 } catch { $eventoErr = $_.Exception.Message }
 
-# 2) API nativa del spooler: documento, usuario, impresora, páginas y fecha.
+# 2) Documento real: la tarea elevada copia los .spl del spooler y aquí se
+# convierten a PDF (EMF) o se adjuntan tal cual (RAW). Va antes que la metadata
+# para que el mismo trabajo se registre con su archivo.
 try {
   $cs = Join-Path $dir 'impulsa_spooler.cs'
   if (Test-Path $cs) {
-    Add-Type -Path $cs
+    Add-Type -Path $cs -ReferencedAssemblies System.Drawing -ErrorAction Stop
+    $captureJson = [ImpulsaSpooler]::GetCaptureJson($dir)
+    if (-not [string]::IsNullOrWhiteSpace($captureJson)) {
+      foreach ($captureLine in ($captureJson -split "`n")) {
+        if (-not [string]::IsNullOrWhiteSpace($captureLine)) { [void]$lines.Add($captureLine.Trim()) }
+      }
+    }
     $jobsJson = [ImpulsaSpooler]::GetJobsJson()
     if (-not [string]::IsNullOrWhiteSpace($jobsJson)) {
       foreach ($jobLine in ($jobsJson -split "`n")) {
@@ -491,127 +570,425 @@ Set-Content -Path $diagFile -Value $diag -ErrorAction SilentlyContinue
 $lines | ForEach-Object { Write-Output $_ }
 "##;
 
+// Script ejecutado por una tarea programada con privilegios SYSTEM. El agente
+// lo escribe al iniciar; el instalador crea la tarea. Necesita elevación para
+// leer C:\Windows\System32\spool\PRINTERS y conservar los trabajos impresos.
+const SPOOL_CAPTURE_PS: &str = r##"$ErrorActionPreference = 'SilentlyContinue'
+$destino = 'C:\ProgramData\IMPULSA\spool'
+New-Item -ItemType Directory -Force -Path $destino | Out-Null
+
+# La tarea corre como SYSTEM; dejar permisos al usuario para leer lo copiado.
+try {
+  $acl = Get-Acl $destino
+  $regla = New-Object System.Security.AccessControl.FileSystemAccessRule('Users', 'ReadAndExecute', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+  $acl.AddAccessRule($regla)
+  Set-Acl $destino $acl
+} catch {}
+
+# Conservar los trabajos después de imprimir para que el .spl no desaparezca.
+try {
+  $dll = Join-Path $env:windir 'Microsoft.NET\Framework64\v4.0.30319\WPF\ReachFramework.dll'
+  if (-not (Test-Path $dll)) { $dll = Join-Path $env:windir 'Microsoft.NET\Framework\v4.0.30319\WPF\ReachFramework.dll' }
+  if (Test-Path $dll) {
+    Add-Type -Path $dll -ErrorAction Stop
+    $servidor = New-Object System.Printing.PrintServer
+    foreach ($cola in $servidor.GetPrintQueues()) {
+      try {
+        if (-not $cola.KeepPrintedJobs) { $cola.KeepPrintedJobs = $true; $cola.Commit() }
+      } catch {}
+    }
+  }
+} catch {}
+
+$origen = 'C:\Windows\System32\spool\PRINTERS'
+Get-ChildItem $origen -Filter '*.spl' -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.LastWriteTime -lt (Get-Date).AddSeconds(-5) } |
+  ForEach-Object {
+    $copia = Join-Path $destino $_.Name
+    if (-not (Test-Path $copia)) {
+      try { Copy-Item $_.FullName $copia -Force -ErrorAction Stop } catch {}
+    }
+  }
+
+Get-ChildItem $destino -Filter '*.spl' -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-2) } |
+  Remove-Item -Force -ErrorAction SilentlyContinue
+"##;
+
 // Helper C# que enumera los trabajos del spooler con la API nativa.
 // System.Printing.GetPrintJobInfoCollection() falla en varias colas de este
 // entorno y WMI está roto, así que esta es la fuente principal de impresiones.
 const SPOOLER_CS: &str = r##"using System;
-using System.Text;
-using System.Runtime.InteropServices;
-
-public static class ImpulsaSpooler
-{
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    struct PRINTER_INFO_4 { public IntPtr pPrinterName; public IntPtr pServerName; public uint Attributes; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct SYSTEMTIME { public ushort Year, Month, DayOfWeek, Day, Hour, Minute, Second, Milliseconds; }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    struct JOB_INFO_1
-    {
-        public uint JobId;
-        public IntPtr pPrinterName;
-        public IntPtr pMachineName;
-        public IntPtr pUserName;
-        public IntPtr pDocument;
-        public IntPtr pDatatype;
-        public IntPtr pStatus;
-        public uint Status;
-        public uint Priority;
-        public uint Position;
-        public uint TotalPages;
-        public uint Size;
-        public SYSTEMTIME Submitted;
-        public uint Runtime;
-        public uint TimePrinted;
-    }
-
-    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern bool EnumPrinters(uint flags, IntPtr name, uint level, IntPtr buf, uint cb, out uint needed, out uint returned);
-
-    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
-
-    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern bool EnumJobs(IntPtr handle, uint first, uint count, uint level, IntPtr buf, uint cb, out uint needed, out uint returned);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    static extern bool ClosePrinter(IntPtr handle);
-
-    static string Esc(string s)
-    {
-        if (s == null) return "";
-        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", " ").Replace("\n", " ");
-    }
-
-    static string Str(IntPtr p)
-    {
-        if (p == IntPtr.Zero) return "";
-        try { return Marshal.PtrToStringUni(p) ?? ""; } catch { return ""; }
-    }
-
-    public static string GetJobsJson()
-    {
-        var sb = new StringBuilder();
-        uint needed = 0, returned = 0;
-        EnumPrinters(6, IntPtr.Zero, 4, IntPtr.Zero, 0, out needed, out returned);
-        if (needed == 0) return "";
-        IntPtr printers = Marshal.AllocHGlobal((int)needed);
-        try
-        {
-            if (!EnumPrinters(6, IntPtr.Zero, 4, printers, needed, out needed, out returned)) return "";
-            int printerSize = Marshal.SizeOf(typeof(PRINTER_INFO_4));
-            for (int i = 0; i < returned; i++)
-            {
-                var info = (PRINTER_INFO_4)Marshal.PtrToStructure(IntPtr.Add(printers, i * printerSize), typeof(PRINTER_INFO_4));
-                string printer = Str(info.pPrinterName);
-                if (string.IsNullOrWhiteSpace(printer)) continue;
-                IntPtr handle;
-                if (!OpenPrinter(printer, out handle, IntPtr.Zero)) continue;
-                try
-                {
-                    IntPtr jobsBuf = Marshal.AllocHGlobal(1024 * 1024);
-                    uint jobsNeeded = 0, jobsCount = 0;
-                    try
-                    {
-                        if (!EnumJobs(handle, 0, 100, 1, jobsBuf, 1024 * 1024, out jobsNeeded, out jobsCount)) continue;
-                        // JOB_INFO_1 ocupa 96 bytes en el spooler de Windows x64.
-                        const int jobSize = 96;
-                        for (int j = 0; j < jobsCount && j < 100; j++)
-                        {
-                            var job = (JOB_INFO_1)Marshal.PtrToStructure(IntPtr.Add(jobsBuf, j * jobSize), typeof(JOB_INFO_1));
-                            string doc = Str(job.pDocument);
-                            if (string.IsNullOrWhiteSpace(doc)) continue;
-                            DateTime fecha;
-                            try
-                            {
-                                // SYSTEMTIME del spooler ya viene en UTC (no es hora local).
-                                fecha = new DateTime(job.Submitted.Year, job.Submitted.Month, job.Submitted.Day,
-                                    job.Submitted.Hour, job.Submitted.Minute, job.Submitted.Second, DateTimeKind.Utc);
-                            }
-                            catch { fecha = DateTime.UtcNow; }
-                            // Solo impresiones del día en hora local: evita subir
-                            // trabajos viejos que quedaron en colas de otras PCs.
-                            if (fecha.ToLocalTime().Date != DateTime.Today) continue;
-                            sb.Append("{\"evento_id\":\"JOB-").Append(Esc(printer)).Append('-').Append(job.JobId)
-                              .Append('-').Append(fecha.Ticks).Append("\",\"documento\":\"").Append(Esc(doc))
-                              .Append("\",\"usuario\":\"").Append(Esc(Str(job.pUserName)))
-                              .Append("\",\"impresora\":\"").Append(Esc(printer))
-                              .Append("\",\"paginas\":").Append(job.TotalPages)
-                              .Append(",\"fecha\":\"").Append(fecha.ToString("o"))
-                              .Append("\"}\n");
-                        }
-                    }
-                    finally { Marshal.FreeHGlobal(jobsBuf); }
-                }
-                finally { ClosePrinter(handle); }
-            }
-        }
-        finally { Marshal.FreeHGlobal(printers); }
-        return sb.ToString();
-    }
-}
-"##;
+ using System.Collections.Generic;
+ using System.Drawing;
+ using System.Drawing.Imaging;
+ using System.IO;
+ using System.Text;
+ using System.Runtime.InteropServices;
+ 
+ public static class ImpulsaSpooler
+ {
+     const int JOB2_SIZE = 160;
+     const string SPOOL_INBOX = @"C:\ProgramData\IMPULSA\spool";
+ 
+     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+     struct PRINTER_INFO_4 { public IntPtr pPrinterName; public IntPtr pServerName; public uint Attributes; }
+ 
+     [StructLayout(LayoutKind.Sequential)]
+     struct SYSTEMTIME { public ushort Year, Month, DayOfWeek, Day, Hour, Minute, Second, Milliseconds; }
+ 
+     // JOB_INFO_2 completo (Winspool.h). La versión anterior usaba JOB_INFO_1
+     // sobre una cola nivel 2, por eso los datos del trabajo salían desplazados.
+     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+     struct JOB_INFO_2
+     {
+         public uint JobId;
+         public IntPtr pPrinterName;
+         public IntPtr pMachineName;
+         public IntPtr pUserName;
+         public IntPtr pDocument;
+         public IntPtr pNotifyName;
+         public IntPtr pDatatype;
+         public IntPtr pPrintProcessor;
+         public IntPtr pParameters;
+         public IntPtr pDriverName;
+         public IntPtr pDevMode;
+         public IntPtr pStatus;
+         public IntPtr pSecurityDescriptor;
+         public uint Status;
+         public uint Priority;
+         public uint Position;
+         public uint StartTime;
+         public uint UntilTime;
+         public uint TotalPages;
+         public uint Size;
+         public SYSTEMTIME Submitted;
+         public uint Time;
+         public uint PagesPrinted;
+     }
+ 
+     class JobInfo
+     {
+         public string Printer = "";
+         public string Document = "";
+         public string User = "";
+         public string Datatype = "";
+         public uint JobId;
+         public uint Pages;
+         public DateTime FechaUtc;
+     }
+ 
+     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+     static extern bool EnumPrinters(uint flags, IntPtr name, uint level, IntPtr buf, uint cb, out uint needed, out uint returned);
+ 
+     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+     static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
+ 
+     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+     static extern bool EnumJobs(IntPtr handle, uint first, uint count, uint level, IntPtr buf, uint cb, out uint needed, out uint returned);
+ 
+     [DllImport("winspool.drv", SetLastError = true)]
+     static extern bool ClosePrinter(IntPtr handle);
+ 
+     static string Esc(string s)
+     {
+         if (s == null) return "";
+         return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", " ").Replace("\n", " ");
+     }
+ 
+     static string Str(IntPtr p, IntPtr lo, IntPtr hi)
+     {
+         if (p == IntPtr.Zero) return "";
+         long v = p.ToInt64();
+         if (v < lo.ToInt64() || v >= hi.ToInt64()) return "";
+         try { return Marshal.PtrToStringUni(p) ?? ""; } catch { return ""; }
+     }
+ 
+     static List<JobInfo> GetJobs()
+     {
+         var lista = new List<JobInfo>();
+         uint needed = 0, returned = 0;
+         EnumPrinters(6, IntPtr.Zero, 4, IntPtr.Zero, 0, out needed, out returned);
+         if (needed == 0) return lista;
+         IntPtr printers = Marshal.AllocHGlobal((int)needed);
+         try
+         {
+             if (!EnumPrinters(6, IntPtr.Zero, 4, printers, needed, out needed, out returned)) return lista;
+             int printerSize = Marshal.SizeOf(typeof(PRINTER_INFO_4));
+             IntPtr printersEnd = IntPtr.Add(printers, (int)needed);
+             for (int i = 0; i < returned; i++)
+             {
+                 var info = (PRINTER_INFO_4)Marshal.PtrToStructure(IntPtr.Add(printers, i * printerSize), typeof(PRINTER_INFO_4));
+                 string printer = Str(info.pPrinterName, printers, printersEnd);
+                 if (string.IsNullOrWhiteSpace(printer)) continue;
+                 IntPtr handle;
+                 if (!OpenPrinter(printer, out handle, IntPtr.Zero)) continue;
+                 try
+                 {
+                     const int bufferSize = 1024 * 1024;
+                     IntPtr jobsBuf = Marshal.AllocHGlobal(bufferSize);
+                     uint jobsNeeded = 0, jobsCount = 0;
+                     try
+                     {
+                         if (!EnumJobs(handle, 0, 100, 2, jobsBuf, bufferSize, out jobsNeeded, out jobsCount)) continue;
+                         IntPtr jobsEnd = IntPtr.Add(jobsBuf, bufferSize);
+                         for (int j = 0; j < jobsCount && j < 100; j++)
+                         {
+                             IntPtr row = IntPtr.Add(jobsBuf, j * JOB2_SIZE);
+                             var job = (JOB_INFO_2)Marshal.PtrToStructure(row, typeof(JOB_INFO_2));
+                             string doc = Str(job.pDocument, jobsBuf, jobsEnd);
+                             if (string.IsNullOrWhiteSpace(doc)) continue;
+                             DateTime fecha;
+                             try
+                             {
+                                 fecha = new DateTime(job.Submitted.Year, job.Submitted.Month, job.Submitted.Day,
+                                     job.Submitted.Hour, job.Submitted.Minute, job.Submitted.Second, DateTimeKind.Utc);
+                             }
+                             catch { fecha = DateTime.UtcNow; }
+                             lista.Add(new JobInfo
+                             {
+                                 Printer = printer,
+                                 Document = doc,
+                                 User = Str(job.pUserName, jobsBuf, jobsEnd),
+                                 Datatype = Str(job.pDatatype, jobsBuf, jobsEnd),
+                                 JobId = job.JobId,
+                                 Pages = job.TotalPages,
+                                 FechaUtc = fecha,
+                             });
+                         }
+                     }
+                     finally { Marshal.FreeHGlobal(jobsBuf); }
+                 }
+                 finally { ClosePrinter(handle); }
+             }
+         }
+         finally { Marshal.FreeHGlobal(printers); }
+         return lista;
+     }
+ 
+     public static string GetJobsJson()
+     {
+         var sb = new StringBuilder();
+         foreach (var job in GetJobs())
+         {
+             if (job.FechaUtc.ToLocalTime().Date != DateTime.Today) continue;
+             sb.Append("{\"evento_id\":\"JOB-").Append(Esc(job.Printer)).Append('-').Append(job.JobId)
+               .Append('-').Append(job.FechaUtc.Ticks).Append("\",\"documento\":\"").Append(Esc(job.Document))
+               .Append("\",\"usuario\":\"").Append(Esc(job.User))
+               .Append("\",\"impresora\":\"").Append(Esc(job.Printer))
+               .Append("\",\"paginas\":").Append(job.Pages)
+               .Append(",\"fecha\":\"").Append(job.FechaUtc.ToString("o"))
+               .Append("\"}\n");
+         }
+         return sb.ToString();
+     }
+ 
+     static HashSet<string> LeerProcesados(string path)
+     {
+         var set = new HashSet<string>();
+         if (!File.Exists(path)) return set;
+         string texto = File.ReadAllText(path);
+         foreach (string parte in texto.Split(','))
+         {
+             string limpio = parte.Trim().Trim('[', ']', '"');
+             if (limpio.Length > 0) set.Add(limpio);
+         }
+         return set;
+     }
+ 
+     static void GuardarProcesados(string path, HashSet<string> set)
+     {
+         var sb = new StringBuilder("[");
+         bool primero = true;
+         foreach (string nombre in set)
+         {
+             if (!primero) sb.Append(',');
+             sb.Append('"').Append(Esc(nombre)).Append('"');
+             primero = false;
+         }
+         sb.Append(']');
+         File.WriteAllText(path, sb.ToString());
+     }
+ 
+     static string NombreSeguro(string nombre)
+     {
+         char[] invalidos = Path.GetInvalidFileNameChars();
+         var sb = new StringBuilder();
+         foreach (char c in nombre)
+         {
+             if (Array.IndexOf(invalidos, c) >= 0 || c == '"' || c == ';') sb.Append('_');
+             else sb.Append(c);
+         }
+         string resultado = sb.ToString();
+         return resultado.Length > 80 ? resultado.Substring(0, 80) : resultado;
+     }
+ 
+     static bool EsEmf(byte[] datos)
+     {
+         return datos.Length > 4 && datos[0] == 1 && datos[1] == 0 && datos[2] == 0 && datos[3] == 0;
+     }
+ 
+     static MemoryStream pdfStream;
+ 
+     static byte[] Ascii(string s) { return Encoding.ASCII.GetBytes(s); }
+ 
+     static void PdfW(string s) { byte[] b = Ascii(s); pdfStream.Write(b, 0, b.Length); }
+ 
+     static void PdfWB(byte[] b) { pdfStream.Write(b, 0, b.Length); }
+ 
+     static byte[] ImagesToPdf(List<byte[]> jpegs, List<int> widths, List<int> heights)
+     {
+         pdfStream = new MemoryStream();
+         int n = jpegs.Count;
+         int[] off = new int[2 + n * 3 + 1];
+         PdfW("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+         off[1] = (int)pdfStream.Length; PdfW("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+         off[2] = (int)pdfStream.Length;
+         PdfW("2 0 obj\n<< /Type /Pages /Kids [");
+         for (int i = 0; i < n; i++) PdfW((3 + i * 3) + " 0 R ");
+         PdfW("] /Count " + n + " >>\nendobj\n");
+         for (int i = 0; i < n; i++)
+         {
+             int page = 3 + i * 3, content = page + 1, img = page + 2;
+             off[page] = (int)pdfStream.Length;
+             PdfW(page + " 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + widths[i] + " " + heights[i]
+               + "] /Resources << /XObject << /Im0 " + img + " 0 R >> >> /Contents " + content + " 0 R >>\nendobj\n");
+             string draw = "q\n" + widths[i] + " 0 0 " + heights[i] + " 0 0 cm\n/Im0 Do\nQ\n";
+             off[content] = (int)pdfStream.Length;
+             PdfW(content + " 0 obj\n<< /Length " + Ascii(draw).Length + " >>\nstream\n" + draw + "endstream\nendobj\n");
+             off[img] = (int)pdfStream.Length;
+             PdfW(img + " 0 obj\n<< /Type /XObject /Subtype /Image /Width " + widths[i] + " /Height " + heights[i]
+               + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + jpegs[i].Length + " >>\nstream\n");
+             PdfWB(jpegs[i]);
+             PdfW("\nendstream\nendobj\n");
+         }
+         int xref = (int)pdfStream.Length;
+         int total = 2 + n * 3;
+         PdfW("xref\n0 " + (total + 1) + "\n0000000000 65535 f \n");
+         for (int i = 1; i <= total; i++) PdfW(off[i].ToString("D10") + " 00000 n \n");
+         PdfW("trailer\n<< /Size " + (total + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+         return pdfStream.ToArray();
+     }
+ 
+     static byte[] EmfToPdf(byte[] emf)
+     {
+         using (var ms = new MemoryStream(emf))
+         using (var mf = new Metafile(ms))
+         {
+             Guid[] dims = mf.FrameDimensionsList;
+             int paginas = dims != null && dims.Length > 0 ? mf.GetFrameCount(new FrameDimension(dims[0])) : 1;
+             if (paginas < 1) paginas = 1;
+             var jpegs = new List<byte[]>();
+             var widths = new List<int>();
+             var heights = new List<int>();
+             for (int p = 0; p < paginas; p++)
+             {
+                 if (dims != null && dims.Length > 0) mf.SelectActiveFrame(new FrameDimension(dims[0]), p);
+                 int w = Math.Max(1, (int)mf.Width);
+                 int h = Math.Max(1, (int)mf.Height);
+                 double escala = Math.Min(1.0, 1800.0 / Math.Max(w, h));
+                 if (escala < 1.0) { w = Math.Max(1, (int)(w * escala)); h = Math.Max(1, (int)(h * escala)); }
+                 using (var bmp = new Bitmap(w, h))
+                 {
+                     using (var g = Graphics.FromImage(bmp))
+                     {
+                         g.Clear(Color.White);
+                         g.DrawImage(mf, new Rectangle(0, 0, w, h));
+                     }
+                     using (var jpg = new MemoryStream())
+                     {
+                         bmp.Save(jpg, ImageFormat.Jpeg);
+                         jpegs.Add(jpg.ToArray());
+                         widths.Add(w);
+                         heights.Add(h);
+                     }
+                 }
+             }
+             return ImagesToPdf(jpegs, widths, heights);
+         }
+     }
+ 
+     static string Linea(string id, string doc, string user, string printer, uint paginas, DateTime fecha, string archivo, string nombre, string mime, long size)
+     {
+         return "{\"evento_id\":\"" + Esc(id) + "\",\"documento\":\"" + Esc(doc)
+             + "\",\"usuario\":\"" + Esc(user) + "\",\"impresora\":\"" + Esc(printer)
+             + "\",\"paginas\":" + paginas + ",\"fecha\":\"" + fecha.ToString("o")
+             + "\",\"archivo\":\"" + Esc(archivo) + "\",\"archivo_nombre\":\"" + Esc(nombre)
+             + "\",\"archivo_tipo\":\"" + Esc(mime) + "\",\"archivo_size\":" + size + "}\n";
+     }
+ 
+     // Convierte los .spl copiados por la tarea elevada en documentos visibles.
+     public static string GetCaptureJson(string dir)
+     {
+         var sb = new StringBuilder();
+         if (!Directory.Exists(SPOOL_INBOX)) return "";
+         string donePath = Path.Combine(dir, "processed_spool.json");
+         HashSet<string> procesados = LeerProcesados(donePath);
+         List<JobInfo> trabajos = GetJobs();
+         foreach (string archivo in Directory.GetFiles(SPOOL_INBOX, "*.spl"))
+         {
+             string nombreSpl = Path.GetFileName(archivo);
+             if (procesados.Contains(nombreSpl)) continue;
+             byte[] datos;
+             try { datos = File.ReadAllBytes(archivo); } catch { continue; }
+             if (datos.Length == 0) { procesados.Add(nombreSpl); continue; }
+ 
+             DateTime mtime = File.GetLastWriteTimeUtc(archivo);
+             JobInfo mejor = null;
+             double mejorDiferencia = double.MaxValue;
+             foreach (var trabajo in trabajos)
+             {
+                 double diferencia = Math.Abs((mtime - trabajo.FechaUtc).TotalMinutes);
+                 if (diferencia < mejorDiferencia) { mejorDiferencia = diferencia; mejor = trabajo; }
+             }
+             if (mejorDiferencia > 15) mejor = null;
+ 
+             string doc = mejor != null ? mejor.Document : Path.GetFileNameWithoutExtension(nombreSpl);
+             string usuario = mejor != null ? mejor.User : "";
+             string impresora = mejor != null ? mejor.Printer : "";
+             uint paginas = mejor != null && mejor.Pages > 0 ? mejor.Pages : 1;
+             DateTime fecha = mejor != null ? mejor.FechaUtc : mtime;
+             string id = "SPL-" + Path.GetFileNameWithoutExtension(nombreSpl) + "-" + datos.Length;
+ 
+             string salida, mime, nombreSalida;
+             try
+             {
+                 if (EsEmf(datos))
+                 {
+                     byte[] pdf = EmfToPdf(datos);
+                     nombreSalida = NombreSeguro(doc) + ".pdf";
+                     salida = Path.Combine(dir, "capture-" + Guid.NewGuid().ToString("N").Substring(0, 8) + "-" + nombreSalida);
+                     File.WriteAllBytes(salida, pdf);
+                     mime = "application/pdf";
+                 }
+                 else
+                 {
+                     nombreSalida = NombreSeguro(doc) + ".spl";
+                     salida = Path.Combine(dir, "capture-" + Guid.NewGuid().ToString("N").Substring(0, 8) + "-" + nombreSalida);
+                     File.WriteAllBytes(salida, datos);
+                     mime = "application/octet-stream";
+                 }
+             }
+             catch
+             {
+                 nombreSalida = NombreSeguro(doc) + ".spl";
+                 salida = Path.Combine(dir, "capture-" + Guid.NewGuid().ToString("N").Substring(0, 8) + "-" + nombreSalida);
+                 try
+                 {
+                     File.WriteAllBytes(salida, datos);
+                     mime = "application/octet-stream";
+                 }
+                 catch { continue; }
+             }
+ 
+             sb.Append(Linea(id, doc, usuario, impresora, paginas, fecha, salida, nombreSalida, mime, new FileInfo(salida).Length));
+             procesados.Add(nombreSpl);
+         }
+         GuardarProcesados(donePath, procesados);
+         return sb.ToString();
+     }
+ }
+ "##;
 
 // Reporta las impresiones reales de Windows al backend.
 fn start_print_watcher(storage_dir: PathBuf) {
@@ -626,6 +1003,12 @@ fn start_print_watcher(storage_dir: PathBuf) {
             .servidor
             .unwrap_or_else(|| DEFAULT_API.to_string());
         fs::create_dir_all(&storage_dir).ok();
+
+        // La tarea programada elevada necesita este script. Se reescribe en cada
+        // arranque para que una reinstallación no dependa del orden de ejecución.
+        let captura_dir = PathBuf::from(r"C:\ProgramData\IMPULSA");
+        fs::create_dir_all(captura_dir.join("spool")).ok();
+        let _ = fs::write(captura_dir.join("capture_spool.ps1"), SPOOL_CAPTURE_PS);
 
         let dir = storage_dir.to_string_lossy().replace('\'', "''");
         let script_path = storage_dir.join("impulsa_print.ps1");
@@ -696,18 +1079,39 @@ fn start_print_watcher(storage_dir: PathBuf) {
                     .get("paginas")
                     .and_then(|v| v.as_i64())
                     .unwrap_or(1);
-                let payload = serde_json::json!({
-                    "pc": pc,
-                    "evento_id": id,
-                    "documento": documento,
-                    "usuario": field("usuario"),
-                    "impresora": field("impresora"),
-                    "paginas": paginas,
-                    "copias": 1,
-                    "fecha": field("fecha"),
-                })
-                .to_string();
-                post_json("/api/pc/print", &payload, &api);
+                let archivo = field("archivo");
+                if !archivo.is_empty() {
+                    let ruta = PathBuf::from(&archivo);
+                    if ruta.is_file() {
+                        post_print_file(
+                            &pc,
+                            &id,
+                            &documento,
+                            &field("usuario"),
+                            &field("impresora"),
+                            paginas,
+                            &field("fecha"),
+                            &ruta,
+                            &field("archivo_nombre"),
+                            &field("archivo_tipo"),
+                            &api,
+                        );
+                        fs::remove_file(&ruta).ok();
+                    }
+                } else {
+                    let payload = serde_json::json!({
+                        "pc": pc,
+                        "evento_id": id,
+                        "documento": documento,
+                        "usuario": field("usuario"),
+                        "impresora": field("impresora"),
+                        "paginas": paginas,
+                        "copias": 1,
+                        "fecha": field("fecha"),
+                    })
+                    .to_string();
+                    post_json("/api/pc/print", &payload, &api);
+                }
             }
             if hubo_nuevos {
                 let lista: Vec<String> = seen.iter().cloned().collect();

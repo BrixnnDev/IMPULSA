@@ -84,12 +84,21 @@ export async function initDb() {
         estado TEXT NOT NULL DEFAULT 'Impreso',
         usuario TEXT DEFAULT '',
         impresora TEXT DEFAULT '',
-        usuario_id TEXT DEFAULT ''
+        usuario_id TEXT DEFAULT '',
+        archivo BYTEA,
+        archivo_nombre TEXT DEFAULT '',
+        archivo_tipo TEXT DEFAULT '',
+        archivo_size BIGINT DEFAULT 0
       );
 
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS usuario TEXT DEFAULT '';
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS impresora TEXT DEFAULT '';
       ALTER TABLE prints ADD COLUMN IF NOT EXISTS usuario_id TEXT DEFAULT '';
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS archivo BYTEA;
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS archivo_nombre TEXT DEFAULT '';
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS archivo_tipo TEXT DEFAULT '';
+      ALTER TABLE prints ADD COLUMN IF NOT EXISTS archivo_size BIGINT DEFAULT 0;
+      CREATE INDEX IF NOT EXISTS prints_fecha_idx ON prints (fecha DESC);
 
       CREATE TABLE IF NOT EXISTS scans (
         id TEXT PRIMARY KEY,
