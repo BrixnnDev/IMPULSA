@@ -601,16 +601,30 @@ try {
 } catch {}
 
 $origen = 'C:\Windows\System32\spool\PRINTERS'
-Get-ChildItem $origen -Filter '*.spl' -File -ErrorAction SilentlyContinue |
-  Where-Object { $_.LastWriteTime -lt (Get-Date).AddSeconds(-5) -and $_.LastWriteTime -gt (Get-Date).AddDays(-1) } |
-  ForEach-Object {
-    # El spooler reutiliza nombres como 00003.spl; agregar la fecha evita
-    # sobrescribir una captura anterior cuando el colador se recicla.
-    $copia = Join-Path $destino ($_.LastWriteTime.ToString('yyyyMMdd-HHmmss') + '-' + $_.Name)
-    if (-not (Test-Path $copia)) {
-      try { Copy-Item $_.FullName $copia -Force -ErrorAction Stop } catch {}
-    }
+# Una sola tarea por minuto no alcanza: el spooler borra el .spl apenas termina
+# la impresión. Escanear cada 2 segundos durante casi un minuto evita perderlo.
+$mutex = New-Object System.Threading.Mutex($false, 'Local\IMPULSA-SpoolCapture')
+if (-not $mutex.WaitOne(0)) { exit }
+try {
+  for ($i = 0; $i -lt 26; $i++) {
+    # Marca de vida para saber si la tarea SYSTEM está corriendo.
+    Set-Content -Path (Join-Path $destino 'capture_heartbeat.txt') -Value (Get-Date).ToString('o') -ErrorAction SilentlyContinue
+    Get-ChildItem $origen -Filter '*.spl' -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.LastWriteTime -lt (Get-Date).AddSeconds(-1) -and $_.LastWriteTime -gt (Get-Date).AddDays(-1) } |
+      ForEach-Object {
+        # El spooler reutiliza nombres como 00003.spl; agregar la fecha evita
+        # sobrescribir una captura anterior cuando el colador se recicla.
+        $copia = Join-Path $destino ($_.LastWriteTime.ToString('yyyyMMdd-HHmmss') + '-' + $_.Name)
+        if (-not (Test-Path $copia)) {
+          try { Copy-Item $_.FullName $copia -Force -ErrorAction Stop } catch {}
+        }
+      }
+    Start-Sleep -Seconds 2
   }
+} finally {
+  try { $mutex.ReleaseMutex() } catch {}
+  try { $mutex.Dispose() } catch {}
+}
 
 Get-ChildItem $destino -Filter '*.spl' -File -ErrorAction SilentlyContinue |
   Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-2) } |
