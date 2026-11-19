@@ -314,6 +314,34 @@ export function pcRouter(io) {
     } catch (e) { console.error('[pc] print file:', e.message); res.status(500).json({ ok: false, error: e.message }) }
   })
 
+  // Los trabajos PCL/RAW no se pueden dibujar en el navegador. Extraemos el
+  // texto legible del spool para que se pueda identificar el documento y a
+  // quién se imprimió, aunque no haya una imagen renderizable.
+  r.get('/prints/:id/text', async (req, res) => {
+    try {
+      const q = await pool.query(
+        'SELECT archivo, archivo_nombre, archivo_tipo FROM prints WHERE id = $1 LIMIT 1',
+        [req.params.id],
+      )
+      const fila = q.rows[0]
+      if (!fila?.archivo) return res.status(404).json({ ok: false, error: 'Esta impresión no tiene documento adjunto.' })
+      const crudo = fila.archivo.toString('latin1')
+      const bloques = crudo.match(/[\x20-\x7E]{4,}/g) || []
+      const texto = bloques
+        .map((b) => b.trim())
+        .filter((b) => b.length >= 4)
+        .filter((b) => !/^[~%!]/.test(b))
+        .slice(0, 300)
+        .join('\n')
+      res.json({
+        ok: true,
+        nombre: fila.archivo_nombre || '',
+        tipo: fila.archivo_tipo || '',
+        texto: texto || 'No se encontró texto legible en el archivo capturado.',
+      })
+    } catch (e) { console.error('[pc] print text:', e.message); res.status(500).json({ ok: false, error: e.message }) }
+  })
+
   // Asignar / cambiar el usuario dueño de una PC
   r.patch('/:id', async (req, res) => {
     try {

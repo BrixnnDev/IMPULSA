@@ -49,6 +49,7 @@ export default function DigitMovimientos() {
   const [busqueda, setBusqueda] = useState('')
   const [modal, setModal] = useState(null)
   const [verPdf, setVerPdf] = useState(null)
+  const [textoDoc, setTextoDoc] = useState('')
   const [info, setInfo] = useState(null)
   const [pcStatus, setPcStatus] = useState({})
 
@@ -71,6 +72,22 @@ export default function DigitMovimientos() {
     })
     return () => { s.close(); clearInterval(id) }
   }, [])
+
+  // Los .spl PCL/RAW no se pueden mostrar en un iframe: pedimos al backend el
+  // texto legible capturado para que el visor nunca quede en blanco.
+  const mimeDoc = (verPdf?.archivo_tipo || '').toLowerCase()
+  const nombreDoc = (verPdf?.archivo_nombre || '').toLowerCase()
+  const esPdfDoc = mimeDoc.includes('pdf') || nombreDoc.endsWith('.pdf')
+  const esImagenDoc = mimeDoc.startsWith('image/') || /\.(png|jpe?g|gif|bmp)$/.test(nombreDoc)
+
+  useEffect(() => {
+    setTextoDoc('')
+    if (!verPdf || !tieneDocumento(verPdf) || esPdfDoc || esImagenDoc) return
+    fetch(`${API}/api/pc/prints/${encodeURIComponent(verPdf.id)}/text`)
+      .then((r) => r.json())
+      .then((d) => setTextoDoc(d?.texto || ''))
+      .catch(() => setTextoDoc('No se pudo extraer el texto del documento.'))
+  }, [verPdf, esPdfDoc, esImagenDoc])
 
   const copiar = (t) => navigator.clipboard?.writeText(t)
 
@@ -252,13 +269,41 @@ export default function DigitMovimientos() {
                 <button onClick={() => setVerPdf(null)} className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"><FiX size={16} /></button>
               </div>
             </div>
-            {tieneDocumento(verPdf) ? (
+            {tieneDocumento(verPdf) && esPdfDoc ? (
               <div className="min-h-0 flex-1 bg-slate-300/10 p-3 sm:p-5">
                 <iframe
                   src={archivoUrl(verPdf)}
                   title={`Documento impreso: ${verPdf.documento}`}
                   className="h-[65vh] min-h-[420px] w-full rounded-lg bg-white shadow-inner"
                 />
+              </div>
+            ) : tieneDocumento(verPdf) && esImagenDoc ? (
+              <div className="min-h-0 flex-1 overflow-auto bg-slate-300/10 p-3 sm:p-5">
+                <img
+                  src={archivoUrl(verPdf)}
+                  alt={`Documento impreso: ${verPdf.documento}`}
+                  className="mx-auto max-w-full rounded-lg bg-white shadow-inner"
+                />
+              </div>
+            ) : tieneDocumento(verPdf) ? (
+              <div className="min-h-0 flex-1 overflow-auto bg-slate-300/10 p-4 sm:p-6">
+                <div className="mx-auto w-full max-w-[760px] rounded-xl bg-white p-5 shadow-inner sm:p-7">
+                  <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+                    <FiInfo size={16} className="text-amber-600" />
+                    <p className="text-xs font-bold text-slate-700">
+                      Documento PCL/RAW: no se puede dibujar en el navegador.
+                    </p>
+                    <span className="text-[11px] text-slate-500">
+                      Impreso por <b>{fmtUsuario(verPdf)}</b> · {fmtFecha(verPdf)} · {verPdf.impresora || 'Impresora no identificada'}
+                    </span>
+                  </div>
+                  <pre className="max-h-[52vh] overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-slate-800">
+                    {textoDoc || 'Extrayendo texto del documento...'}
+                  </pre>
+                  <p className="mt-4 text-[11px] text-slate-500">
+                    Archivo original: {verPdf.archivo_nombre}. Usa «Descargar» para abrirlo con el visor del fabricante.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="overflow-y-auto bg-slate-300/10 p-4 sm:p-8">
