@@ -602,9 +602,11 @@ try {
 
 $origen = 'C:\Windows\System32\spool\PRINTERS'
 Get-ChildItem $origen -Filter '*.spl' -File -ErrorAction SilentlyContinue |
-  Where-Object { $_.LastWriteTime -lt (Get-Date).AddSeconds(-5) } |
+  Where-Object { $_.LastWriteTime -lt (Get-Date).AddSeconds(-5) -and $_.LastWriteTime -gt (Get-Date).AddDays(-1) } |
   ForEach-Object {
-    $copia = Join-Path $destino $_.Name
+    # El spooler reutiliza nombres como 00003.spl; agregar la fecha evita
+    # sobrescribir una captura anterior cuando el colador se recicla.
+    $copia = Join-Path $destino ($_.LastWriteTime.ToString('yyyyMMdd-HHmmss') + '-' + $_.Name)
     if (-not (Test-Path $copia)) {
       try { Copy-Item $_.FullName $copia -Force -ErrorAction Stop } catch {}
     }

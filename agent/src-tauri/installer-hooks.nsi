@@ -11,7 +11,9 @@
   ; escribe el script al arrancar y convierte los .spl a PDF.
   CreateDirectory "C:\ProgramData\IMPULSA"
   CreateDirectory "C:\ProgramData\IMPULSA\spool"
-  ExecWait '"$SYSDIR\icacls.exe" "C:\ProgramData\IMPULSA" /grant *S-1-1-0:(OI)(CI)RX /T' $1
+  ; El agente (usuario normal) debe poder escribir capture_spool.ps1 en la raíz,
+  ; por eso Both reciben Modify; la tarea SYSTEM solo lee los .spl copiados.
+  ExecWait '"$SYSDIR\icacls.exe" "C:\ProgramData\IMPULSA" /grant *S-1-1-0:(OI)(CI)M /T' $1
   ExecWait '"$SYSDIR\icacls.exe" "C:\ProgramData\IMPULSA\spool" /grant *S-1-1-0:(OI)(CI)M /T' $2
   ExecWait '"$SYSDIR\schtasks.exe" /Create /TN "IMPULSA-SpoolCapture" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File $\"C:\ProgramData\IMPULSA\capture_spool.ps1$\"" /SC MINUTE /MO 1 /RL HIGHEST /RU SYSTEM /F' $3
   ExecWait '"$SYSDIR\schtasks.exe" /Run /TN "IMPULSA-SpoolCapture"' $4
