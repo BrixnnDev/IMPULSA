@@ -1078,7 +1078,12 @@ fn start_print_watcher(storage_dir: PathBuf) {
                     continue;
                 }
                 let id = field("evento_id");
-                if id.is_empty() || !seen.insert(id.clone()) {
+                let archivo = field("archivo");
+                // La metadata se registra primero con este ID. Cuando llega el
+                // documento capturado con el MISMO ID debe poder subirse igual:
+                // el backend hace UPSERT y lo adjunta al registro existente.
+                let ya_visto = !seen.insert(id.clone());
+                if id.is_empty() || (ya_visto && archivo.is_empty()) {
                     continue;
                 }
                 hubo_nuevos = true;
@@ -1086,7 +1091,6 @@ fn start_print_watcher(storage_dir: PathBuf) {
                     .get("paginas")
                     .and_then(|v| v.as_i64())
                     .unwrap_or(1);
-                let archivo = field("archivo");
                 if !archivo.is_empty() {
                     let ruta = PathBuf::from(&archivo);
                     if ruta.is_file() {
