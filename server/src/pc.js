@@ -7,7 +7,7 @@ import { pool } from './db.js'
 // El agente puede adjuntar el documento real capturado del spooler de Windows.
 const uploadPrint = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
 })
 
 const pcState = new Map()

@@ -474,6 +474,27 @@ $colaErr = ''
 $spoolerErr = ''
 $logErr = ''
 
+function Normalizar-Doc([string]$s) {
+  if ([string]::IsNullOrWhiteSpace($s)) { return '' }
+  $base = [System.IO.Path]::GetFileNameWithoutExtension($s)
+  $base = $base -replace '^(Microsoft Word|Microsoft Excel|Microsoft PowerPoint|Microsoft Edge|Adobe Acrobat|Adobe Reader)\s*[-–:]\s*', ''
+  $base = $base -replace '[\s\-_()\[\].]+', ''
+  return $base.ToLowerInvariant()
+}
+
+function Mime-Documento([string]$ruta) {
+  switch ([System.IO.Path]::GetExtension($ruta).ToLowerInvariant()) {
+    '.pdf'  { return 'application/pdf' }
+    '.png'  { return 'image/png' }
+    '.jpg'  { return 'image/jpeg' }
+    '.jpeg' { return 'image/jpeg' }
+    '.bmp'  { return 'image/bmp' }
+    '.tif'  { return 'image/tiff' }
+    '.tiff' { return 'image/tiff' }
+    default { return '' }
+  }
+}
+
 # El log operativo de impresión suele venir deshabilitado. El instalador lo
 # activa con elevación; aquí se vuelve a intentar por si el agente corre como admin.
 try { wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null } catch { $logErr = $_.Exception.Message }
@@ -557,6 +578,154 @@ try {
     }
   }
 } catch { $colaErr = $_.Exception.Message }
+
+# 4) ARCHIVO ORIGINAL: el .spl de una impresora PCL no se puede ver en el
+# navegador. Buscamos en las carpetas del usuario el PDF/imagen impreso: el
+# nombre del trabajo suele ser exactamente el nombre del archivo. Se envía con
+# el MISMO evento_id para que se adjunte al registro de esa impresión.
+$indiceFile = Join-Path $dir 'archivos_index.json'
+$raices = @(
+  (Join-Path $env:USERPROFILE 'Desktop'),
+  (Join-Path $env:USERPROFILE 'Documents'),
+  (Join-Path $env:USERPROFILE 'Downloads'),
+  'C:\Users\Public\Desktop',
+  'C:\Users\Public\Documents'
+)
+$documentos = @()
+try {
+  if (Test-Path $indiceFile) {
+    if ((Get-Item $indiceFile).LastWriteTime -gt (Get-Date).AddMinutes(-10)) {
+      $indiceLeido = Get-Content $indiceFile -Raw | ConvertFrom-Json
+      $documentos = @($indiceLeido)
+    }
+  }
+  if ($documentos.Count -eq 0) {
+    $indice = @()
+    foreach ($raiz in $raices) {
+      if (-not (Test-Path $raiz)) { continue }
+      foreach ($f in (Get-ChildItem $raiz -File -Recurse -ErrorAction SilentlyContinue)) {
+        try {
+          if ($f.FullName -match '\\(node_modules|\.git|AppData|ProgramData|Program Files)\\') { continue }
+          $mime = Mime-Documento $f.FullName
+          if (-not $mime) { continue }
+          $indice += [pscustomobject]@{
+            Ruta = $f.FullName
+            Nombre = $f.Name
+            Mime = $mime
+            Hora = $f.LastWriteTime
+          }
+        } catch {}
+      }
+    }
+    $documentos = $indice
+    try { Set-Content $indiceFile -Value ($documentos | ConvertTo-Json -Compress -Depth 4) -ErrorAction SilentlyContinue } catch {}
+  }
+} catch {}
+
+# "Recientes" cubre archivos que ya no están en las carpetas comunes.
+try {
+  $shell = New-Object -ComObject WScript.Shell
+  $recentDir = Join-Path $env:APPDATA 'Microsoft\Windows\Recent'
+  foreach ($lnk in (Get-ChildItem $recentDir -Filter '*.lnk' -File -ErrorAction SilentlyContinue)) {
+    try {
+      $destino = $shell.CreateShortcut($lnk.FullName).TargetPath
+      if (-not [string]::IsNullOrWhiteSpace($destino) -and (Test-Path -LiteralPath $destino -PathType Leaf)) {
+        $mime = Mime-Documento $destino
+        if ($mime) {
+          $documentos += [pscustomobject]@{
+            Ruta = $destino
+            Nombre = [System.IO.Path]::GetFileName($destino)
+            Mime = $mime
+            Hora = $lnk.LastWriteTime
+          }
+        }
+      }
+    } catch {}
+  }
+} catch {}
+
+if ($documentos.Count -gt 0) {
+  $origentesFile = Join-Path $dir 'originales.json'
+  $procesadosOriginal = @{}
+  if (Test-Path $origentesFile) {
+    try {
+      $clavesLeidas = Get-Content $origentesFile -Raw | ConvertFrom-Json
+      foreach ($claveGuardada in @($clavesLeidas)) {
+        $procesadosOriginal[[string]$claveGuardada] = $true
+      }
+    } catch {}
+  }
+
+  foreach ($linea in @($lines)) {
+    try {
+      $o = $linea | ConvertFrom-Json
+      if (-not $o) { continue }
+      $archivoActual = [string]$o.archivo
+      # Si el spooler ya entregó un PDF/imagen, no lo sobrescribimos. Los .spl
+      # PCL/RAW sí se sustituyen por el archivo original legible del usuario.
+      if ($archivoActual -and $archivoActual -notmatch '\.(spl|raw|prn)$') { continue }
+      $norm = Normalizar-Doc ([string]$o.documento)
+      if (-not $norm) { continue }
+      $clave = ([string]$o.evento_id) + '|' + $norm
+      if ($procesadosOriginal.ContainsKey($clave)) { continue }
+
+      $horaPrint = [datetime]$o.fecha
+      $candidatos = @($documentos | Where-Object { (Normalizar-Doc $_.Nombre) -eq $norm })
+      if ($candidatos.Count -eq 0) {
+        $candidatos = @($documentos | Where-Object {
+          $n = Normalizar-Doc $_.Nombre
+          $n.Length -ge 6 -and ($n.Contains($norm) -or $norm.Contains($n))
+        })
+      }
+      if ($candidatos.Count -eq 0) {
+        # El archivo pudo crearse después de construir el índice: busque dirigida.
+        $base = [string]$o.documento -replace '^(Microsoft Word|Microsoft Excel|Microsoft PowerPoint|Adobe Acrobat|Adobe Reader)\s*[-–:]\s*', ''
+        $base = [System.IO.Path]::GetFileNameWithoutExtension($base)
+        if ($base.Length -ge 5) {
+          foreach ($raiz in $raices) {
+            if (-not (Test-Path $raiz)) { continue }
+            foreach ($f in (Get-ChildItem $raiz -File -Recurse -Filter ('*' + $base + '*') -ErrorAction SilentlyContinue)) {
+              $mime = Mime-Documento $f.FullName
+              if ($mime) {
+                $candidatos += [pscustomobject]@{
+                  Ruta = $f.FullName
+                  Nombre = $f.Name
+                  Mime = $mime
+                  Hora = $f.LastWriteTime
+                }
+              }
+            }
+          }
+        }
+      }
+      if ($candidatos.Count -eq 0) { continue }
+
+      $mejor = $candidatos | Sort-Object { [math]::Abs(($_.Hora - $horaPrint).TotalHours) } | Select-Object -First 1
+      # Copiar a un archivo temporal del agente: Rust lo borra después de subirlo,
+      # nunca se toca el documento original del usuario.
+      $temporal = Join-Path $dir ('original-' + [guid]::NewGuid().ToString('N').Substring(0, 10) + [System.IO.Path]::GetExtension($mejor.Ruta))
+      Copy-Item -LiteralPath $mejor.Ruta -Destination $temporal -Force -ErrorAction Stop
+
+      $adjunto = [ordered]@{
+        evento_id = [string]$o.evento_id
+        documento = [string]$o.documento
+        usuario = [string]$o.usuario
+        impresora = [string]$o.impresora
+        paginas = [int]$o.paginas
+        fecha = [string]$o.fecha
+        archivo = $temporal
+        archivo_nombre = $mejor.Nombre
+        archivo_tipo = $mejor.Mime
+      }
+      [void]$lines.Add(($adjunto | ConvertTo-Json -Compress))
+      $procesadosOriginal[$clave] = $true
+    } catch {}
+  }
+
+  try {
+    Set-Content -Path $origentesFile -Value (($procesadosOriginal.Keys | Sort-Object) | ConvertTo-Json -Compress) -ErrorAction SilentlyContinue
+  } catch {}
+}
 
 $diag = [ordered]@{
   hora = (Get-Date).ToUniversalTime().ToString('o')
