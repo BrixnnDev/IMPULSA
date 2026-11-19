@@ -950,7 +950,12 @@ const SPOOLER_CS: &str = r##"using System;
              string impresora = mejor != null ? mejor.Printer : "";
              uint paginas = mejor != null && mejor.Pages > 0 ? mejor.Pages : 1;
              DateTime fecha = mejor != null ? mejor.FechaUtc : mtime;
-             string id = "SPL-" + Path.GetFileNameWithoutExtension(nombreSpl) + "-" + datos.Length;
+             // Si el .spl se pudo asociar a un trabajo de la cola, usar el MISMO
+             // evento_id que la metadata: así el backend actualiza ese registro
+             // con el archivo en vez de crear una impresión duplicada.
+             string id = mejor != null
+                 ? "JOB-" + mejor.Printer + "-" + mejor.JobId + "-" + mejor.FechaUtc.Ticks
+                 : "SPL-" + Path.GetFileNameWithoutExtension(nombreSpl) + "-" + datos.Length;
  
              string salida, mime, nombreSalida;
              try

@@ -210,10 +210,22 @@ export function pcRouter(io) {
         archivo_size: archivo?.size || 0,
         tieneArchivo: Boolean(archivo),
       }
+      // La metadata suele llegar antes que el .spl (la tarea corre cada minuto).
+      // Un mismo evento_id debe quedar como UN solo registro: si después llega
+      // el archivo, se adjunta; si llega primero, la metadata no lo borra.
       const ins = await pool.query(
         `INSERT INTO prints (id, pc, responsable, documento, paginas, copias, hora, fecha, estado, usuario, impresora, usuario_id, archivo, archivo_nombre, archivo_tipo, archivo_size)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO UPDATE SET
+           archivo = COALESCE(EXCLUDED.archivo, prints.archivo),
+           archivo_nombre = COALESCE(NULLIF(EXCLUDED.archivo_nombre, ''), prints.archivo_nombre),
+           archivo_tipo = COALESCE(NULLIF(EXCLUDED.archivo_tipo, ''), prints.archivo_tipo),
+           archivo_size = GREATEST(prints.archivo_size, EXCLUDED.archivo_size),
+           documento = COALESCE(NULLIF(EXCLUDED.documento, ''), prints.documento),
+           usuario = COALESCE(NULLIF(EXCLUDED.usuario, ''), prints.usuario),
+           impresora = COALESCE(NULLIF(EXCLUDED.impresora, ''), prints.impresora),
+           fecha = EXCLUDED.fecha
+         RETURNING archivo_nombre, archivo_tipo, archivo_size`,
         [
           registro.id, registro.pc, registro.responsable, registro.documento,
           registro.paginas, registro.copias, registro.hora, registro.fecha, registro.estado,
@@ -222,11 +234,16 @@ export function pcRouter(io) {
         ],
       )
       await pool.query(`DELETE FROM prints WHERE id NOT IN (SELECT id FROM prints ORDER BY fecha DESC LIMIT 500)`)
+      const guardado = ins.rows[0] || {}
+      registro.archivo_nombre = guardado.archivo_nombre || ''
+      registro.archivo_tipo = guardado.archivo_tipo || ''
+      registro.archivo_size = guardado.archivo_size || 0
+      registro.tieneArchivo = Boolean(registro.archivo_nombre && Number(registro.archivo_size) > 0)
       if (ins.rowCount > 0) {
         io.emit('pc:print', registro)
-        console.log(`[print] ${registro.pc} (${registro.usuario}) imprimió: ${documento}${archivo ? ' + documento' : ''}`)
+        console.log(`[print] ${registro.pc} (${registro.usuario}) imprimió: ${documento}${registro.tieneArchivo ? ' + documento' : ''}`)
       }
-      res.json({ ok: true, registro, duplicado: ins.rowCount === 0 })
+      res.json({ ok: true, registro, duplicado: false })
     } catch (e) {
       console.error('[pc] print:', e.message)
       res.status(500).json({ ok: false, error: e.message })
