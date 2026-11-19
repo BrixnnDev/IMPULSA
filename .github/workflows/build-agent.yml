@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Dos pushes seguidos no deben publicar exe en orden inverso.
+concurrency:
+  group: build-agent
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
