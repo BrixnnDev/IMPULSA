@@ -191,7 +191,14 @@ export function pcRouter(io) {
       const found = q.rows[0]
       const fechaReal = fecha && !Number.isNaN(new Date(fecha).getTime()) ? new Date(fecha) : new Date()
       const id = evento_id ? `PRN-${String(evento_id).replace(/[^A-Za-z0-9_-]/g, '')}` : `PRN-${Date.now().toString(36)}`
-      const archivo = req.file
+      let archivo = req.file
+      // Los PDF cifrados piden contraseña en el visor web. El agente nuevo ya
+      // los sustituye por el PDF renderizado desde el spool; esta barrera evita
+      // que un agente pendiente de actualizar vuelva a guardarlos.
+      if (archivo && /pdf/i.test(archivo.mimetype || '') && archivo.buffer) {
+        const cola = archivo.buffer.subarray(Math.max(0, archivo.buffer.length - 65536)).toString('latin1')
+        if (cola.includes('/Encrypt')) archivo = null
+      }
       const registro = {
         id,
         pc: found ? found.etiqueta : pc,
