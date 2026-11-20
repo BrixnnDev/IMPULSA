@@ -495,6 +495,22 @@ function Mime-Documento([string]$ruta) {
   }
 }
 
+# Un PDF con contraseña no se puede mostrar en el visor web. Se descarta para
+# que el agente adjunte el PDF generado desde el spool de impresión.
+function EsPdfCifrado([string]$ruta) {
+  try {
+    if ([System.IO.Path]::GetExtension($ruta).ToLowerInvariant() -ne '.pdf') { return $false }
+    $fs = [System.IO.File]::Open($ruta, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+      $leer = [int][Math]::Min(65536, $fs.Length)
+      $fs.Position = $fs.Length - $leer
+      $buf = New-Object byte[] $leer
+      [void]$fs.Read($buf, 0, $leer)
+      return ([System.Text.Encoding]::ASCII.GetString($buf).Contains('/Encrypt'))
+    } finally { $fs.Dispose() }
+  } catch { return $false }
+}
+
 # El log operativo de impresión suele venir deshabilitado. El instalador lo
 # activa con elevación; aquí se vuelve a intentar por si el agente corre como admin.
 try { wevtutil sl Microsoft-Windows-PrintService/Operational /e:true 2>$null | Out-Null } catch { $logErr = $_.Exception.Message }
@@ -536,7 +552,7 @@ try {
 try {
   $cs = Join-Path $dir 'impulsa_spooler.cs'
   if (Test-Path $cs) {
-    Add-Type -Path $cs -ReferencedAssemblies @('System.Drawing','PresentationCore','WindowsBase','PresentationFramework','ReachFramework','System.Xaml') -ErrorAction Stop
+    Add-Type -Path $cs -ReferencedAssemblies @('System.Drawing','PresentationCore','WindowsBase','PresentationFramework','ReachFramework','System.Xaml','System.IO.Compression') -ErrorAction Stop
     $captureJson = [ImpulsaSpooler]::GetCaptureJson($dir)
     if (-not [string]::IsNullOrWhiteSpace($captureJson)) {
       foreach ($captureLine in ($captureJson -split "`n")) {
@@ -596,7 +612,7 @@ try {
   if (Test-Path $indiceFile) {
     if ((Get-Item $indiceFile).LastWriteTime -gt (Get-Date).AddMinutes(-10)) {
       $indiceLeido = Get-Content $indiceFile -Raw | ConvertFrom-Json
-      $documentos = @($indiceLeido)
+      $documentos = @($indiceLeido | Where-Object { -not (EsPdfCifrado $_.Ruta) })
     }
   }
   if ($documentos.Count -eq 0) {
@@ -607,7 +623,7 @@ try {
         try {
           if ($f.FullName -match '\\(node_modules|\.git|AppData|ProgramData|Program Files)\\') { continue }
           $mime = Mime-Documento $f.FullName
-          if (-not $mime) { continue }
+          if (-not $mime -or (EsPdfCifrado $f.FullName)) { continue }
           $indice += [pscustomobject]@{
             Ruta = $f.FullName
             Nombre = $f.Name
@@ -631,7 +647,7 @@ try {
       $destino = $shell.CreateShortcut($lnk.FullName).TargetPath
       if (-not [string]::IsNullOrWhiteSpace($destino) -and (Test-Path -LiteralPath $destino -PathType Leaf)) {
         $mime = Mime-Documento $destino
-        if ($mime) {
+        if ($mime -and -not (EsPdfCifrado $destino)) {
           $documentos += [pscustomobject]@{
             Ruta = $destino
             Nombre = [System.IO.Path]::GetFileName($destino)
@@ -686,7 +702,7 @@ if ($documentos.Count -gt 0) {
             if (-not (Test-Path $raiz)) { continue }
             foreach ($f in (Get-ChildItem $raiz -File -Recurse -Filter ('*' + $base + '*') -ErrorAction SilentlyContinue)) {
               $mime = Mime-Documento $f.FullName
-              if ($mime) {
+              if ($mime -and -not (EsPdfCifrado $f.FullName)) {
                 $candidatos += [pscustomobject]@{
                   Ruta = $f.FullName
                   Nombre = $f.Name
@@ -808,7 +824,9 @@ const SPOOLER_CS: &str = r##"using System;
  using System.Drawing;
  using System.Drawing.Imaging;
  using System.IO;
+ using System.IO.Compression;
  using System.Text;
+ using System.Text.RegularExpressions;
  using System.Runtime.InteropServices;
  using System.Windows;
  using System.Windows.Documents;
@@ -1042,10 +1060,136 @@ const SPOOLER_CS: &str = r##"using System;
              && (ContieneAscii(datos, "FixedDocumentSequence") || ContieneAscii(datos, "Documents/1/"));
      }
 
+     // El spooler escribe XPS/OXPS como ZIP en flujo: cabeceras locales con
+     // descriptores de datos, sin directorio central y con partes fragmentadas
+     // en "[n].piece". WPF no puede abrirlo directamente, así que se reconstruye
+     // un paquete XPS normal antes de renderizarlo a PDF.
+     static int IndexOfBytes(byte[] datos, byte[] patron, int desde)
+     {
+         for (int i = desde; i <= datos.Length - patron.Length; i++)
+         {
+             bool igual = true;
+             for (int j = 0; j < patron.Length; j++)
+             {
+                 if (datos[i + j] != patron[j]) { igual = false; break; }
+             }
+             if (igual) return i;
+         }
+         return -1;
+     }
+
+     static byte[] CerrarXml(string nombre, byte[] contenido)
+     {
+         string ext = Path.GetExtension(nombre).ToLowerInvariant();
+         bool esXml = ext == ".xml" || ext == ".rels" || ext == ".fdoc"
+             || ext == ".fdseq" || ext == ".dict" || nombre == "[Content_Types].xml";
+         if (!esXml) return contenido;
+         try
+         {
+             string s = Encoding.UTF8.GetString(contenido).TrimEnd();
+             Match m = Regex.Match(s, @"<([A-Za-z_][\w:.-]*)");
+             if (!m.Success) return contenido;
+             string raiz = m.Groups[1].Value;
+             if (!s.EndsWith("</" + raiz + ">")) s += "</" + raiz + ">";
+             return Encoding.UTF8.GetBytes(s);
+         }
+         catch { return contenido; }
+     }
+
+     static byte[] RebuildXps(byte[] datos)
+     {
+         try
+         {
+             var firmas = new Dictionary<string, SortedDictionary<int, byte[]>>();
+             var sueltos = new Dictionary<string, byte[]>();
+             byte[] descriptor = { 0x50, 0x4B, 0x07, 0x08 };
+             int off = 0;
+             while (off + 30 <= datos.Length)
+             {
+                 if (datos[off] != 0x50 || datos[off + 1] != 0x4B || datos[off + 2] != 0x03 || datos[off + 3] != 0x04) break;
+                 int flags = BitConverter.ToUInt16(datos, off + 6);
+                 int method = BitConverter.ToUInt16(datos, off + 8);
+                 int nombreLen = BitConverter.ToUInt16(datos, off + 26);
+                 int extraLen = BitConverter.ToUInt16(datos, off + 28);
+                 string nombre = Encoding.UTF8.GetString(datos, off + 30, nombreLen);
+                 int inicio = off + 30 + nombreLen + extraLen;
+                 int finDatos;
+                 int siguiente;
+                 if ((flags & 8) != 0)
+                 {
+                     int desc = IndexOfBytes(datos, descriptor, inicio);
+                     if (desc < 0) break;
+                     finDatos = desc;
+                     siguiente = desc + 16;
+                 }
+                 else
+                 {
+                     int compSize = BitConverter.ToInt32(datos, off + 18);
+                     finDatos = inicio + compSize;
+                     siguiente = finDatos;
+                 }
+                 if (finDatos < inicio || finDatos > datos.Length) break;
+                 int tamComprimido = finDatos - inicio;
+                 byte[] comprimido = new byte[tamComprimido];
+                 Buffer.BlockCopy(datos, inicio, comprimido, 0, tamComprimido);
+                 byte[] contenido;
+                 if (method == 8)
+                 {
+                     using (var entrada = new MemoryStream(comprimido))
+                     using (var descomprimir = new DeflateStream(entrada, CompressionMode.Decompress))
+                     using (var salida = new MemoryStream())
+                     {
+                         descomprimir.CopyTo(salida);
+                         contenido = salida.ToArray();
+                     }
+                 }
+                 else contenido = comprimido;
+
+                 Match pieza = Regex.Match(nombre, @"^(.*)/\[(\d+)\](?:\.last)?\.piece$");
+                 if (pieza.Success)
+                 {
+                     string baseNombre = pieza.Groups[1].Value;
+                     int indice = int.Parse(pieza.Groups[2].Value);
+                     if (!firmas.ContainsKey(baseNombre)) firmas[baseNombre] = new SortedDictionary<int, byte[]>();
+                     firmas[baseNombre][indice] = contenido;
+                 }
+                 else if (!sueltos.ContainsKey(nombre)) sueltos[nombre] = contenido;
+                 off = siguiente;
+             }
+             if (firmas.Count == 0 && sueltos.Count == 0) return null;
+
+             using (var ms = new MemoryStream())
+             {
+                 using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
+                 {
+                     foreach (var kv in firmas)
+                     {
+                         using (var parte = new MemoryStream())
+                         {
+                             foreach (var pieza in kv.Value) parte.Write(pieza.Value, 0, pieza.Value.Length);
+                             byte[] contenido = CerrarXml(kv.Key, parte.ToArray());
+                             var entry = zip.CreateEntry(kv.Key);
+                             using (var es = entry.Open()) es.Write(contenido, 0, contenido.Length);
+                         }
+                     }
+                     foreach (var kv in sueltos)
+                     {
+                         byte[] contenido = CerrarXml(kv.Key, kv.Value);
+                         var entry = zip.CreateEntry(kv.Key);
+                         using (var es = entry.Open()) es.Write(contenido, 0, contenido.Length);
+                     }
+                 }
+                 return ms.ToArray();
+             }
+         }
+         catch { return null; }
+     }
+
      static byte[] XpsToPdf(byte[] datos)
      {
+         byte[] paquete = RebuildXps(datos) ?? datos;
          string temporal = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".xps");
-         File.WriteAllBytes(temporal, datos);
+         File.WriteAllBytes(temporal, paquete);
          try
          {
              XpsDocument doc = new XpsDocument(temporal, FileAccess.Read);
