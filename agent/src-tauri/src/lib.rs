@@ -1096,6 +1096,29 @@ const SPOOLER_CS: &str = r##"using System;
          catch { return contenido; }
      }
 
+     static byte[] Miniatura(Visual visual)
+     {
+         const int w = 32, h = 32;
+         RenderTargetBitmap bmp = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+         DrawingVisual dv = new DrawingVisual();
+         using (DrawingContext ctx = dv.RenderOpen())
+         {
+             ctx.DrawRectangle(System.Windows.Media.Brushes.White, null, new Rect(0, 0, w, h));
+             ctx.DrawRectangle(new VisualBrush(visual), null, new Rect(0, 0, w, h));
+         }
+         bmp.Render(dv);
+         byte[] pixeles = new byte[w * 4 * h];
+         bmp.CopyPixels(pixeles, w * 4, 0);
+         return pixeles;
+     }
+
+     static bool BytesIguales(byte[] a, byte[] b)
+     {
+         if (a == null || b == null || a.Length != b.Length) return false;
+         for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+         return true;
+     }
+
      static byte[] RebuildXps(byte[] datos)
      {
          try
@@ -1185,6 +1208,34 @@ const SPOOLER_CS: &str = r##"using System;
          catch { return null; }
      }
 
+     static int PaginasCopia(byte[] paquete)
+     {
+         try
+         {
+             using (var ms = new MemoryStream(paquete))
+             using (var zip = new ZipArchive(ms, ZipArchiveMode.Read))
+             {
+                 string primero = null;
+                 foreach (var entry in zip.Entries)
+                 {
+                     if (!entry.FullName.EndsWith(".fpage", StringComparison.OrdinalIgnoreCase)) continue;
+                     using (var sr = new StreamReader(entry.Open()))
+                     {
+                         var refs = new List<string>();
+                         MatchCollection m = Regex.Matches(sr.ReadToEnd(), @"Resources/Images/[^""'\s>]+\.JPG", RegexOptions.IgnoreCase);
+                         foreach (Match item in m) refs.Add(item.Value.ToLowerInvariant());
+                         refs.Sort();
+                         string firma = string.Join("|", refs);
+                         if (primero == null) primero = firma;
+                         else if (firma != primero) return 0;
+                     }
+                 }
+                 return primero == null ? 0 : 1;
+             }
+         }
+         catch { return 0; }
+     }
+
      static byte[] XpsToPdf(byte[] datos)
      {
          byte[] paquete = RebuildXps(datos) ?? datos;
@@ -1201,7 +1252,9 @@ const SPOOLER_CS: &str = r##"using System;
                  var jpegs = new List<byte[]>();
                  var widths = new List<int>();
                  var heights = new List<int>();
+                 var minis = new List<byte[]>();
                  int paginas = Math.Max(1, paginator.PageCount);
+                 if (PaginasCopia(paquete) == 1) paginas = 1;
                  for (int p = 0; p < paginas; p++)
                  {
                      DocumentPage pagina = paginator.GetPage(p);
@@ -1225,10 +1278,18 @@ const SPOOLER_CS: &str = r##"using System;
                          var encoder = new JpegBitmapEncoder();
                          encoder.Frames.Add(BitmapFrame.Create(bmp));
                          encoder.Save(ms);
-                         jpegs.Add(ms.ToArray());
+                         byte[] jpeg = ms.ToArray();
+                         byte[] mini = Miniatura(visual);
+                         // Impresiones de varias copias generan páginas XPS
+                         // idénticas; el visor solo necesita una.
+                         if (jpegs.Count == 0 || !BytesIguales(minis[minis.Count - 1], mini))
+                         {
+                             jpegs.Add(jpeg);
+                             widths.Add(w);
+                             heights.Add(h);
+                             minis.Add(mini);
+                         }
                      }
-                     widths.Add(w);
-                     heights.Add(h);
                  }
                  if (jpegs.Count == 0) throw new Exception("XPS sin paginas renderizables");
                  return ImagesToPdf(jpegs, widths, heights);
